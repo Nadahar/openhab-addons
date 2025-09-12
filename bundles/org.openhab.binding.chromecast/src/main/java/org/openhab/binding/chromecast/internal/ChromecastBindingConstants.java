@@ -30,7 +30,6 @@ import org.openhab.core.thing.ThingTypeUID;
 @NonNullByDefault
 public class ChromecastBindingConstants {
     public static final String BINDING_ID = "chromecast";
-    public static final String MEDIA_PLAYER = "CC1AD845";
 
     public static final ThingTypeUID THING_TYPE_CHROMECAST = new ThingTypeUID(BINDING_ID, "chromecast");
     public static final ThingTypeUID THING_TYPE_AUDIO = new ThingTypeUID(BINDING_ID, "audio");
@@ -40,7 +39,7 @@ public class ChromecastBindingConstants {
             Stream.of(THING_TYPE_AUDIO, THING_TYPE_AUDIOGROUP, THING_TYPE_CHROMECAST).collect(Collectors.toSet()));
 
     // Config Parameters
-    public static final String HOST = "ipAddress";
+    public static final String HOST = "host";
     public static final String PORT = "port";
     public static final String DEVICE_ID = "deviceId";
 

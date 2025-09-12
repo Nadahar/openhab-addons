@@ -16,7 +16,22 @@ import static org.openhab.binding.chromecast.internal.ChromecastBindingConstants
 import static org.openhab.core.thing.ThingStatusDetail.COMMUNICATION_ERROR;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
+import org.digitalmediaserver.cast.CastDevice;
+import org.digitalmediaserver.cast.CastException.ErrorResponseCastException;
+import org.digitalmediaserver.cast.CastException.LaunchErrorCastException;
+import org.digitalmediaserver.cast.Session;
+import org.digitalmediaserver.cast.message.entity.Application;
+import org.digitalmediaserver.cast.message.entity.Media;
+import org.digitalmediaserver.cast.message.entity.Media.MediaBuilder;
+import org.digitalmediaserver.cast.message.entity.MediaStatus;
+import org.digitalmediaserver.cast.message.entity.ReceiverStatus;
+import org.digitalmediaserver.cast.message.enumeration.IdleReason;
+import org.digitalmediaserver.cast.message.enumeration.PlayerState;
+import org.digitalmediaserver.cast.message.enumeration.StreamType;
+import org.digitalmediaserver.cast.util.MetadataUtil;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.library.types.IncreaseDecreaseType;
@@ -32,11 +47,6 @@ import org.openhab.core.types.RefreshType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import su.litvak.chromecast.api.v2.Application;
-import su.litvak.chromecast.api.v2.ChromeCast;
-import su.litvak.chromecast.api.v2.MediaStatus;
-import su.litvak.chromecast.api.v2.Status;
-
 /**
  * This sends the various commands to the Chromecast.
  *
@@ -46,13 +56,15 @@ import su.litvak.chromecast.api.v2.Status;
 public class ChromecastCommander {
     private final Logger logger = LoggerFactory.getLogger(ChromecastCommander.class);
 
-    private final ChromeCast chromeCast;
+    private final CastDevice chromeCast;
     private final ChromecastScheduler scheduler;
     private final ChromecastStatusUpdater statusUpdater;
 
     private static final int VOLUMESTEP = 10;
 
-    public ChromecastCommander(ChromeCast chromeCast, ChromecastScheduler scheduler,
+    private static final String SOURCE = "openHAB";
+
+    public ChromecastCommander(CastDevice chromeCast, ChromecastScheduler scheduler,
             ChromecastStatusUpdater statusUpdater) {
         this.chromeCast = chromeCast;
         this.scheduler = scheduler;
@@ -66,6 +78,11 @@ public class ChromecastCommander {
         }
 
         switch (channelUID.getId()) {
+            case CHANNEL_APP_ID:
+                if (command instanceof StringType) {
+                    startApp(command.toString());
+                }
+                break;
             case CHANNEL_CONTROL:
                 handleControl(command);
                 break;
@@ -94,9 +111,9 @@ public class ChromecastCommander {
             return;
         }
 
-        Status status;
+        ReceiverStatus status;
         try {
-            status = chromeCast.getStatus();
+            status = chromeCast.getReceiverStatus();
             statusUpdater.processStatusUpdate(status);
 
             if (status == null) {
@@ -110,14 +127,21 @@ public class ChromecastCommander {
         }
 
         try {
-            if (status != null && status.getRunningApp() != null) {
-                MediaStatus mediaStatus = chromeCast.getMediaStatus();
-                statusUpdater.updateMediaStatus(mediaStatus);
+            if (status != null && status.getRunningApplication() instanceof Application application) {
+                if (application.getTransportId() == null) {
+                    logger.debug("Running app has no transportId, cannot request media status");
+                    return;
+                }
 
-                if (mediaStatus != null && mediaStatus.playerState == MediaStatus.PlayerState.IDLE
-                        && mediaStatus.idleReason != null
-                        && mediaStatus.idleReason != MediaStatus.IdleReason.INTERRUPTED) {
-                    closeApp(MEDIA_PLAYER);
+                Session session = chromeCast.startSession(SOURCE, application);
+                List<MediaStatus> mediaStatuses = session.getMediaStatus();
+                statusUpdater.updateMediaStatus(mediaStatuses);
+
+                MediaStatus mediaStatus;
+                if (!mediaStatuses.isEmpty() && (mediaStatus = mediaStatuses.getFirst()).getPlayerState() == PlayerState.IDLE
+                        && mediaStatus.getIdleReason() != null
+                        && mediaStatus.getIdleReason() != IdleReason.INTERRUPTED) {
+                    closeApp(CastDevice.DEFAULT_MEDIA_RECEIVER_APP_ID);
                 }
             }
         } catch (IOException ex) {
@@ -130,7 +154,7 @@ public class ChromecastCommander {
         if (command == OnOffType.ON) {
             Application app;
             try {
-                app = chromeCast.getRunningApp();
+                app = chromeCast.getRunningApplication();
             } catch (final IOException e) {
                 logger.info("{} command failed: {}", command, e.getMessage());
                 statusUpdater.updateStatus(ThingStatus.OFFLINE, COMMUNICATION_ERROR, e.getMessage());
@@ -138,7 +162,7 @@ public class ChromecastCommander {
             }
 
             if (app != null) {
-                closeApp(app.id);
+                closeApp(app.getAppId());
             }
         }
     }
@@ -151,27 +175,39 @@ public class ChromecastCommander {
 
     private void handleControl(final Command command) {
         try {
-            Application app = chromeCast.getRunningApp();
+            Application app = chromeCast.getRunningApplication();
             statusUpdater.updateStatus(ThingStatus.ONLINE);
             if (app == null) {
                 logger.debug("{} command ignored because media player app is not running", command);
                 return;
             }
 
+            Session session = chromeCast.startSession(SOURCE, app);
+            List<MediaStatus> mediaStatuses = session.getMediaStatus(3000L);
+            logger.debug("mediaStatuses {}", mediaStatuses);
+            if (mediaStatuses.isEmpty()) {
+                logger.debug("{} command ignored because no media is loaded", command);
+                return;
+            }
+            if (mediaStatuses.size() > 1) {
+                logger.debug("More than one media status received, ignoring all but the first");
+            }
+            statusUpdater.updateMediaStatus(mediaStatuses);
+            MediaStatus mediaStatus = mediaStatuses.getFirst();
+            int mediaSessionId = mediaStatus.getMediaSessionId();
+
             if (command instanceof PlayPauseType playPauseCommand) {
-                MediaStatus mediaStatus = chromeCast.getMediaStatus();
-                logger.debug("mediaStatus {}", mediaStatus);
-                if (mediaStatus == null || mediaStatus.playerState == MediaStatus.PlayerState.IDLE) {
+                if (mediaStatus.getPlayerState() == PlayerState.IDLE) {
                     logger.debug("{} command ignored because media is not loaded", command);
                     return;
                 }
                 if (playPauseCommand == PlayPauseType.PLAY) {
-                    chromeCast.play();
+                    session.play(mediaSessionId, false);
                 } else if (playPauseCommand == PlayPauseType.PAUSE
-                        && ((mediaStatus.supportedMediaCommands & 0x00000001) == 0x1)) {
-                    chromeCast.pause();
+                        && ((mediaStatus.getSupportedMediaCommands() & 0x00000001) == 0x1)) {
+                    session.pause(mediaSessionId, false);
                 } else {
-                    logger.info("{} command not supported by current media", command);
+                    logger.warn("{} command not supported by current media", command);
                 }
             }
 
@@ -180,7 +216,7 @@ public class ChromecastCommander {
                 if (command == NextPreviousType.NEXT) {
                     Double duration = statusUpdater.getLastDuration();
                     if (duration != null) {
-                        chromeCast.seek(duration.doubleValue() - 5);
+                        session.seek(mediaSessionId, (duration.doubleValue() - 5), null, false);
                     } else {
                         logger.info("{} command failed - unknown media duration", command);
                     }
@@ -210,7 +246,7 @@ public class ChromecastCommander {
 
     private void setVolumeInternal(PercentType volume) {
         try {
-            chromeCast.setVolumeByIncrement(volume.floatValue() / 100);
+            chromeCast.setVolumeLevel(volume.floatValue() / 100);
             statusUpdater.updateStatus(ThingStatus.ONLINE);
         } catch (final IOException ex) {
             logger.debug("Set volume failed: {}", ex.getMessage());
@@ -222,7 +258,7 @@ public class ChromecastCommander {
         if (command instanceof OnOffType) {
             final boolean mute = command == OnOffType.ON;
             try {
-                chromeCast.setMuted(mute);
+                chromeCast.setMuteState(mute);
                 statusUpdater.updateStatus(ThingStatus.ONLINE);
             } catch (final IOException ex) {
                 logger.debug("Mute/unmute volume failed: {}", ex.getMessage());
@@ -236,10 +272,10 @@ public class ChromecastCommander {
             return;
         }
         try {
-            if (chromeCast.isAppAvailable(appId)) {
-                if (!chromeCast.isAppRunning(appId)) {
-                    final Application app = chromeCast.launchApp(appId);
-                    statusUpdater.setAppSessionId(app.sessionId);
+            if (chromeCast.isApplicationAvailable(appId)) {
+                if (!chromeCast.isApplicationRunning(appId)) {
+                    final ReceiverStatus receiverStatus = chromeCast.launchApplication(appId, true);
+                    statusUpdater.setAppSessionId(receiverStatus.getRunningApplication().getSessionId());
                     logger.debug("Application launched: {}", appId);
                 }
             } else {
@@ -257,11 +293,11 @@ public class ChromecastCommander {
         }
 
         try {
-            if (chromeCast.isAppRunning(appId)) {
-                Application app = chromeCast.getRunningApp();
-                if (app.id.equals(appId)) {
-                    chromeCast.stopApp();
-                    logger.debug("Application closed: {}", appId);
+            if (chromeCast.isApplicationAvailable(appId)) {
+                Application app = chromeCast.getRunningApplication();
+                if (app.getAppId().equals(CastDevice.DEFAULT_MEDIA_RECEIVER_APP_ID) && app.getSessionId().equals(statusUpdater.getAppSessionId())) {
+                    chromeCast.stopApplication(app, false);
+                    logger.debug("Media player app stopped");
                 }
             }
         } catch (final IOException e) {
@@ -270,29 +306,45 @@ public class ChromecastCommander {
     }
 
     public void playMedia(@Nullable String title, @Nullable String url, @Nullable String mimeType) {
-        startApp(MEDIA_PLAYER);
+        if (url == null || url.isBlank()) {
+            return;
+        }
+        startApp(CastDevice.DEFAULT_MEDIA_RECEIVER_APP_ID);
         try {
-            if (url != null && chromeCast.isAppRunning(MEDIA_PLAYER)) {
+            if (url != null && chromeCast.isApplicationRunning(CastDevice.DEFAULT_MEDIA_RECEIVER_APP_ID)) {
                 // If the current track is paused, launching a new request results in nothing happening, therefore
                 // resume current track.
-                MediaStatus ms = chromeCast.getMediaStatus();
-                if (ms != null && MediaStatus.PlayerState.PAUSED == ms.playerState && url.equals(ms.media.url)) {
-                    logger.debug("Current stream paused, resuming");
-                    chromeCast.play();
-                } else {
-                    chromeCast.load(title, null, url, mimeType);
+                Session session = chromeCast.startSession(SOURCE, chromeCast.getRunningApplication());
+                List<MediaStatus> mses = session.getMediaStatus();
+                MediaStatus ms;
+                MediaBuilder mb = Media.builder(url, mimeType, StreamType.BUFFERED);
+                if (title != null && !title.isBlank()) {
+                    mb.metadata(Map.of(MetadataUtil.Generic.TITLE, title));
                 }
+                ms = session.load(mb, true, null, true);
+                statusUpdater.updateMediaStatus(mses);
             } else {
-                logger.warn("Missing media player app - cannot process media.");
+                logger.warn("Unable to start media player - cannot play media");
             }
             statusUpdater.updateStatus(ThingStatus.ONLINE);
-        } catch (final IOException e) {
-            if ("Unable to load media".equals(e.getMessage())) {
-                logger.warn("Unable to load media: {}", url);
-            } else {
-                logger.debug("Failed playing media: {}", e.getMessage());
-                statusUpdater.updateStatus(ThingStatus.OFFLINE, COMMUNICATION_ERROR,
-                        "IOException while trying to play media: " + e.getMessage());
+        } catch (LaunchErrorCastException e) {
+            logger.warn("Unable to launch media player: {}", e.getMessage());
+        } catch (ErrorResponseCastException e) {
+            logger.warn("Unable to load media \"{}\": {}", url, e.getMessage());
+        } catch (IOException e) {
+            logger.debug("Failed to play media: {}", e.getMessage());
+            statusUpdater.updateStatus(ThingStatus.OFFLINE, COMMUNICATION_ERROR,
+                    "IOException while trying to play media: " + e.getMessage());
+        }
+    }
+
+    public void dispose() {
+        scheduler.destroy();
+        if (chromeCast.isConnected()) {
+            try {
+                chromeCast.disconnect();
+            } catch (IOException e) {
+                logger.debug("Failed to disconnect from chromecast: {}", e.getMessage());
             }
         }
     }

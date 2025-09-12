@@ -13,7 +13,6 @@
 package org.openhab.binding.chromecast.internal;
 
 import static org.openhab.binding.chromecast.internal.ChromecastBindingConstants.*;
-import static su.litvak.chromecast.api.v2.MediaStatus.PlayerState.*;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -23,6 +22,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import org.digitalmediaserver.cast.message.entity.Application;
+import org.digitalmediaserver.cast.message.entity.Media;
+import org.digitalmediaserver.cast.message.entity.MediaStatus;
+import org.digitalmediaserver.cast.message.entity.ReceiverStatus;
+import org.digitalmediaserver.cast.message.entity.Volume;
+import org.digitalmediaserver.cast.message.enumeration.PlayerState;
+import org.digitalmediaserver.cast.util.MetadataUtil.MetadataType;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.chromecast.internal.handler.ChromecastHandler;
@@ -47,14 +53,8 @@ import org.openhab.core.types.UnDefType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import su.litvak.chromecast.api.v2.Application;
-import su.litvak.chromecast.api.v2.Media;
-import su.litvak.chromecast.api.v2.MediaStatus;
-import su.litvak.chromecast.api.v2.Status;
-import su.litvak.chromecast.api.v2.Volume;
-
 /**
- * Responsible for updating the Thing status based on messages received from a ChromeCast. This doesn't query anything -
+ * Responsible for updating the Thing status based on messages received from a CastDevice. This doesn't query anything -
  * it just parses the messages and updates the Thing. Message handling/scheduling/receiving is done elsewhere.
  * <p>
  * This also maintains state of both volume and the appSessionId (only if we started playing media).
@@ -67,7 +67,7 @@ public class ChromecastStatusUpdater {
     private final Logger logger = LoggerFactory.getLogger(ChromecastStatusUpdater.class);
 
     private final Thing thing;
-    private final ChromecastHandler callback;
+    private final ChromecastHandler handler;
     private static final ByteArrayFileCache IMAGE_CACHE = new ByteArrayFileCache("org.openhab.binding.chromecast");
 
     private @Nullable String appSessionId;
@@ -78,7 +78,7 @@ public class ChromecastStatusUpdater {
 
     public ChromecastStatusUpdater(Thing thing, ChromecastHandler callback) {
         this.thing = thing;
-        this.callback = callback;
+        this.handler = callback;
     }
 
     public PercentType getVolume() {
@@ -97,7 +97,7 @@ public class ChromecastStatusUpdater {
         this.appSessionId = appSessionId;
     }
 
-    public void processStatusUpdate(final @Nullable Status status) {
+    public void processStatusUpdate(final @Nullable ReceiverStatus status) {
         if (status == null) {
             updateStatus(ThingStatus.OFFLINE);
             updateAppStatus(null);
@@ -105,13 +105,13 @@ public class ChromecastStatusUpdater {
             return;
         }
 
-        if (status.applications == null) {
+        if (status.getRunningApplications().isEmpty()) {
             this.appSessionId = null;
         }
 
         updateStatus(ThingStatus.ONLINE);
-        updateAppStatus(status.getRunningApp());
-        updateVolumeStatus(status.volume);
+        updateAppStatus(status.getRunningApplication());
+        updateVolumeStatus(status.getVolume());
     }
 
     public void updateAppStatus(final @Nullable Application application) {
@@ -121,16 +121,16 @@ public class ChromecastStatusUpdater {
         OnOffType idling = OnOffType.ON;
 
         if (application != null) {
-            name = new StringType(application.name);
-            id = new StringType(application.id);
-            statusText = new StringType(application.statusText);
-            idling = OnOffType.from(application.isIdleScreen);
+            name = new StringType(application.getDisplayName());
+            id = new StringType(application.getAppId());
+            statusText = new StringType(application.getStatusText());
+            idling = OnOffType.from(application.getIsIdleScreen());
         }
 
-        callback.updateState(CHANNEL_APP_NAME, name);
-        callback.updateState(CHANNEL_APP_ID, id);
-        callback.updateState(CHANNEL_STATUS_TEXT, statusText);
-        callback.updateState(CHANNEL_IDLING, idling);
+        handler.updateState(CHANNEL_APP_NAME, name);
+        handler.updateState(CHANNEL_APP_ID, id);
+        handler.updateState(CHANNEL_STATUS_TEXT, statusText);
+        handler.updateState(CHANNEL_IDLING, idling);
     }
 
     public void updateVolumeStatus(final @Nullable Volume volume) {
@@ -138,51 +138,63 @@ public class ChromecastStatusUpdater {
             return;
         }
 
-        PercentType value = new PercentType((int) (volume.level * 100));
+        PercentType value = new PercentType((int) (volume.getLevel() * 100));
         this.volume = value;
 
-        callback.updateState(CHANNEL_VOLUME, value);
-        callback.updateState(CHANNEL_MUTE, OnOffType.from(volume.muted));
+        handler.updateState(CHANNEL_VOLUME, value);
+        handler.updateState(CHANNEL_MUTE, OnOffType.from(volume.getMuted()));
     }
 
-    public void updateMediaStatus(final @Nullable MediaStatus mediaStatus) {
-        logger.debug("MEDIA_STATUS {}", mediaStatus);
+    public void updateMediaStatus(final @Nullable List<MediaStatus> mediaStatuses) {
+        if (logger.isDebugEnabled()) {
+            if (mediaStatuses == null) {
+                logger.debug("MEDIA_STATUS {}", mediaStatuses);
+            } else {
+                mediaStatuses.forEach((m) -> logger.debug("MEDIA_STATUS {}", m));
+            }
+        }
 
         // In-between songs? It's thinking? It's not doing anything
-        if (mediaStatus == null) {
-            callback.updateState(CHANNEL_CONTROL, PlayPauseType.PAUSE);
-            callback.updateState(CHANNEL_STOP, OnOffType.ON);
-            callback.updateState(CHANNEL_CURRENT_TIME, UnDefType.UNDEF);
+        if (mediaStatuses == null || mediaStatuses.isEmpty()) {
+            handler.updateState(CHANNEL_CONTROL, PlayPauseType.PAUSE);
+            handler.updateState(CHANNEL_STOP, OnOffType.ON);
+            handler.updateState(CHANNEL_CURRENT_TIME, UnDefType.UNDEF);
             updateMediaInfoStatus(null);
             return;
         }
 
-        if (mediaStatus.playerState != null) {
-            switch (mediaStatus.playerState) {
+        MediaStatus mediaStatus = mediaStatuses.getFirst();
+        if (mediaStatuses.size() > 1) {
+            logger.debug("More than one MEDIA_STATUS received, ignoring all but the first");
+        }
+        if (mediaStatus.getPlayerState() instanceof PlayerState mediaPlayerState) {
+            switch (mediaPlayerState) {
                 case IDLE:
+                    handler.updateState(CHANNEL_STOP, OnOffType.ON);
                     break;
                 case PAUSED:
-                    callback.updateState(CHANNEL_CONTROL, PlayPauseType.PAUSE);
-                    callback.updateState(CHANNEL_STOP, OnOffType.OFF);
+                    handler.updateState(CHANNEL_CONTROL, PlayPauseType.PAUSE);
+                    handler.updateState(CHANNEL_STOP, OnOffType.OFF);
                     break;
                 case BUFFERING:
-                case LOADING:
                 case PLAYING:
-                    callback.updateState(CHANNEL_CONTROL, PlayPauseType.PLAY);
-                    callback.updateState(CHANNEL_STOP, OnOffType.OFF);
+                    handler.updateState(CHANNEL_CONTROL, PlayPauseType.PLAY);
+                    handler.updateState(CHANNEL_STOP, OnOffType.OFF);
                     break;
                 default:
-                    logger.debug("Unknown media status: {}", mediaStatus.playerState);
+                    logger.debug("Unknown media status: {}", mediaPlayerState);
                     break;
             }
         }
 
-        callback.updateState(CHANNEL_CURRENT_TIME, new QuantityType<>(mediaStatus.currentTime, Units.SECOND));
+        handler.updateState(CHANNEL_CURRENT_TIME, new QuantityType<>(mediaStatus.getCurrentTime(), Units.SECOND));
 
         // If we're playing, paused or buffering but don't have any MEDIA information don't null everything out.
-        Media media = mediaStatus.media;
-        if (media == null && (mediaStatus.playerState == null || mediaStatus.playerState == PLAYING
-                || mediaStatus.playerState == PAUSED || mediaStatus.playerState == BUFFERING)) {
+        Media media = mediaStatus.getMedia();
+        if (media == null
+                && (mediaStatus.getPlayerState() == null || mediaStatus.getPlayerState() == PlayerState.PLAYING
+                        || mediaStatus.getPlayerState() == PlayerState.PAUSED
+                        || mediaStatus.getPlayerState() == PlayerState.BUFFERING)) {
             return;
         }
 
@@ -191,21 +203,22 @@ public class ChromecastStatusUpdater {
 
     private void updateMediaInfoStatus(final @Nullable Media media) {
         State duration = UnDefType.UNDEF;
-        String metadataType = Media.MetadataType.GENERIC.name();
+        String metadataType = MetadataType.GENERIC.name();
         if (media != null) {
             metadataType = media.getMetadataType().name();
 
-            lastDuration = media.duration;
+            lastDuration = media.getDuration();
             // duration can be null when a new song is about to play.
-            if (media.duration != null) {
-                duration = new QuantityType<>(media.duration, Units.SECOND);
+            if (media.getDuration() != null) {
+                duration = new QuantityType<>(media.getDuration(), Units.SECOND);
             }
         }
 
-        callback.updateState(CHANNEL_DURATION, duration);
-        callback.updateState(CHANNEL_METADATA_TYPE, new StringType(metadataType));
+        handler.updateState(CHANNEL_DURATION, duration);
+        handler.updateState(CHANNEL_METADATA_TYPE, new StringType(metadataType));
 
-        updateMetadataStatus(media == null || media.metadata == null ? Collections.emptyMap() : media.metadata);
+        updateMetadataStatus(
+                media == null || media.getMetadata() == null ? Collections.emptyMap() : media.getMetadata());
     }
 
     private void updateMetadataStatus(Map<String, Object> metadata) {
@@ -220,50 +233,52 @@ public class ChromecastStatusUpdater {
 
     /** Lat/lon are combined into 1 channel so we have to handle them as a special case. */
     private void updateLocation(Map<String, Object> metadata) {
-        if (!callback.isLinked(CHANNEL_LOCATION)) {
+        if (!handler.isLinked(CHANNEL_LOCATION)) {
             return;
         }
 
         Double lat = (Double) metadata.get(LOCATION_METADATA_LATITUDE);
         Double lon = (Double) metadata.get(LOCATION_METADATA_LONGITUDE);
         if (lat == null || lon == null) {
-            callback.updateState(CHANNEL_LOCATION, UnDefType.UNDEF);
+            handler.updateState(CHANNEL_LOCATION, UnDefType.UNDEF);
         } else {
             PointType pointType = new PointType(new DecimalType(lat), new DecimalType(lon));
-            callback.updateState(CHANNEL_LOCATION, pointType);
+            handler.updateState(CHANNEL_LOCATION, pointType);
         }
     }
 
     private void updateImage(Map<String, Object> metadata) {
-        if (!(callback.isLinked(CHANNEL_IMAGE) || (callback.isLinked(CHANNEL_IMAGE_SRC)))) {
+        if (!(handler.isLinked(CHANNEL_IMAGE) || (handler.isLinked(CHANNEL_IMAGE_SRC)))) {
             return;
         }
 
         // Channel name and metadata key don't match.
         Object imagesValue = metadata.get("images");
         if (imagesValue == null) {
-            callback.updateState(CHANNEL_IMAGE_SRC, UnDefType.UNDEF);
+            handler.updateState(CHANNEL_IMAGE_SRC, UnDefType.UNDEF);
             return;
         }
 
         String imageSrc = null;
-        @SuppressWarnings("unchecked")
-        List<Map<String, String>> strings = (List<Map<String, String>>) imagesValue;
-        for (Map<String, String> stringMap : strings) {
-            String url = stringMap.get("url");
-            if (url != null) {
-                imageSrc = url;
-                break;
+        if (imagesValue instanceof List<?> imagesList) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, String>> strings = (List<Map<String, String>>) imagesList;
+            for (Map<String, String> stringMap : strings) {
+                String url = stringMap.get("url");
+                if (url != null) {
+                    imageSrc = url;
+                    break;
+                }
             }
         }
 
-        if (callback.isLinked(CHANNEL_IMAGE_SRC)) {
-            callback.updateState(CHANNEL_IMAGE_SRC, imageSrc == null ? UnDefType.UNDEF : new StringType(imageSrc));
+        if (handler.isLinked(CHANNEL_IMAGE_SRC)) {
+            handler.updateState(CHANNEL_IMAGE_SRC, imageSrc == null ? UnDefType.UNDEF : new StringType(imageSrc));
         }
 
-        if (callback.isLinked(CHANNEL_IMAGE)) {
+        if (handler.isLinked(CHANNEL_IMAGE)) {
             State image = imageSrc == null ? UnDefType.UNDEF : downloadImageFromCache(imageSrc);
-            callback.updateState(CHANNEL_IMAGE, image == null ? UnDefType.UNDEF : image);
+            handler.updateState(CHANNEL_IMAGE, image == null ? UnDefType.UNDEF : image);
         }
     }
 
@@ -303,7 +318,7 @@ public class ChromecastStatusUpdater {
     }
 
     private void updateChannel(ChannelUID channelUID, Map<String, Object> metadata) {
-        if (!callback.isLinked(channelUID)) {
+        if (!handler.isLinked(channelUID)) {
             return;
         }
 
@@ -312,12 +327,12 @@ public class ChromecastStatusUpdater {
 
         if (value == null) {
             state = UnDefType.UNDEF;
-        } else if (value instanceof Double) {
-            state = new DecimalType((Double) value);
-        } else if (value instanceof Integer) {
-            state = new DecimalType(((Integer) value).longValue());
-        } else if (value instanceof String) {
-            state = new StringType(value.toString());
+        } else if (value instanceof Double d) {
+            state = new DecimalType(d);
+        } else if (value instanceof Integer i) {
+            state = new DecimalType(i.longValue());
+        } else if (value instanceof String s) {
+            state = new StringType(s);
         } else if (value instanceof ZonedDateTime datetime) {
             state = new DateTimeType(datetime);
         } else {
@@ -325,7 +340,7 @@ public class ChromecastStatusUpdater {
             logger.warn("Update channel {}: Unsupported value type {}", channelUID, value.getClass().getSimpleName());
         }
 
-        callback.updateState(channelUID, state);
+        handler.updateState(channelUID, state);
     }
 
     private @Nullable Object getValue(String channelId, @Nullable Map<String, Object> metadata) {
@@ -335,9 +350,12 @@ public class ChromecastStatusUpdater {
 
         if (CHANNEL_BROADCAST_DATE.equals(channelId) || CHANNEL_RELEASE_DATE.equals(channelId)
                 || CHANNEL_CREATION_DATE.equals(channelId)) {
-            String dateString = (String) metadata.get(channelId);
-            return (dateString == null) ? null
-                    : ZonedDateTime.ofInstant(Instant.parse(dateString), ZoneId.systemDefault());
+            Object dateObj = metadata.get(channelId);
+            if (dateObj instanceof String dateString) {
+                return ZonedDateTime.ofInstant(Instant.parse(dateString), ZoneId.systemDefault());
+            } else {
+                return null;
+            }
         }
 
         return metadata.get(channelId);
@@ -348,6 +366,6 @@ public class ChromecastStatusUpdater {
     }
 
     public void updateStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description) {
-        callback.updateStatus(status, statusDetail, description);
+        handler.updateStatus(status, statusDetail, description);
     }
 }
