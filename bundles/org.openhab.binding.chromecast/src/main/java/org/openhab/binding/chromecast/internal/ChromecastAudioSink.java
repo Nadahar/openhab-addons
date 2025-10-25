@@ -75,7 +75,7 @@ public class ChromecastAudioSink extends AudioSinkAsync {
             // in case the audioStream is null, this should be interpreted as a request to end any currently playing
             // stream.
             logger.trace("Stop currently playing stream.");
-            handler.stop();
+            handler.stop(); //TODO: (Nad) Shouldn't this only be done if we're currently streaming?
         } else {
             final String url;
             if (audioStream instanceof URLAudioStream urlAudioStream) {
@@ -104,7 +104,7 @@ public class ChromecastAudioSink extends AudioSinkAsync {
                     return;
                 }
             }
-            handler.playURL("Notification", url,
+            handler.playURL("Notification", url, //TODO: (Nad) More formats
                     AudioFormat.MP3.isCompatible(audioStream.getFormat()) ? MIME_TYPE_AUDIO_MPEG : MIME_TYPE_AUDIO_WAV);
         }
     }

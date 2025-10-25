@@ -16,7 +16,9 @@ import java.util.List;
 
 import org.digitalmediaserver.cast.event.CastEvent;
 import org.digitalmediaserver.cast.event.CastEvent.CastEventListener;
+import org.digitalmediaserver.cast.message.entity.Device;
 import org.digitalmediaserver.cast.message.entity.MediaStatus;
+import org.digitalmediaserver.cast.message.response.DeviceUpdatedResponse;
 import org.digitalmediaserver.cast.message.response.MediaStatusResponse;
 import org.digitalmediaserver.cast.message.response.ReceiverStatusResponse;
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -58,12 +60,12 @@ public class ChromecastEventReceiver implements CastEventListener {
             case CLOSE:
                 statusUpdater.updateMediaStatus(null);
                 break;
-            case MEDIA_STATUS:
+            case MEDIA_STATUS: //TODO: (Nad) Reset media on app change
                 MediaStatusResponse mediaStatusResponse = event.getData(MediaStatusResponse.class);
-                List<MediaStatus> mediaStatuses = mediaStatusResponse == null ? null : mediaStatusResponse.getStatuses();
-                if (mediaStatuses == null) {
-                    statusUpdater.updateMediaStatus(null);
+                if (mediaStatusResponse == null) {
+                    statusUpdater.updateMediaStatus(null); //TODO: (Nad) When does this actually happen?
                 } else {
+                    List<MediaStatus> mediaStatuses = mediaStatusResponse.getStatuses();
                     for (MediaStatus mediaStatus : mediaStatuses) {
                         statusUpdater.updateMediaStatus(mediaStatus);
                     }
@@ -73,6 +75,13 @@ public class ChromecastEventReceiver implements CastEventListener {
                 ReceiverStatusResponse receiverStatusResponse = event.getData(ReceiverStatusResponse.class);
                 statusUpdater.processStatusUpdate(receiverStatusResponse == null ? null : receiverStatusResponse.getStatus());
                 break;
+            case DEVICE_UPDATED:
+                DeviceUpdatedResponse deviceUpdatedResponse = event.getData(DeviceUpdatedResponse.class);
+                Device device;
+                if (deviceUpdatedResponse != null && (device = deviceUpdatedResponse.getDevice()) != null) {
+                    statusUpdater.processDeviceUpdate(device);
+                }
+                break;
             case UNKNOWN:
                 logger.debug("Received an 'UNKNOWN' event (class={})", event.getEventType().getDataClass());
                 break;
@@ -80,11 +89,11 @@ public class ChromecastEventReceiver implements CastEventListener {
             case CUSTOM_MESSAGE:
             case DEVICE_ADDED:
             case DEVICE_REMOVED:
-            case DEVICE_UPDATED:
-            case ERROR_RESPONSE:
-            case LAUNCH_ERROR:
+            case ERROR_RESPONSE: //TODO: (Nad) This should probably be handled
+            case LAUNCH_ERROR:  //TODO: (Nad) This should probably be handled
             case MULTIZONE_STATUS:
-            default:
+            default: // CustomMessageEvent [namespace: urn:x-cast:com.google.youtube.mdx, string payload: {"type":"mdxSessionStatus","data":{"screenId":"v9nc3i4luec213m8po6iabn8hm","deviceId":"20bf4ba4-9f17-4099-b9f3-852314e70471"}}]
+                     // CustomMessageEvent [namespace: urn:x-cast:com.google.youtube.mdx, string payload: {"type":"mdxSessionStatus","data":{"screenId":"v9nc3i4luec213m8po6iabn8hm","deviceId":"20bf4ba4-9f17-4099-b9f3-852314e70471"}}]
                 logger.debug("Unhandled event type: {} with data {}:", event.getEventType(), event.getData());
                 break;
         }

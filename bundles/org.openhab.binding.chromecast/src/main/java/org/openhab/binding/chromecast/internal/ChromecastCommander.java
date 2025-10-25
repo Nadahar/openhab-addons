@@ -18,6 +18,8 @@ import static org.openhab.core.thing.ThingStatusDetail.COMMUNICATION_ERROR;
 import java.io.IOException;
 
 import org.digitalmediaserver.cast.CastDevice;
+import org.digitalmediaserver.cast.CastException.ErrorResponseCastException;
+import org.digitalmediaserver.cast.CastException.LaunchErrorCastException;
 import org.digitalmediaserver.cast.Session;
 import org.digitalmediaserver.cast.message.entity.Application;
 import org.digitalmediaserver.cast.message.entity.Media.MediaBuilder;
@@ -306,20 +308,20 @@ public class ChromecastCommander {
                     session.play(ms.getMediaSessionId(), false);
                 } else {
                     MediaBuilder builder = new MediaBuilder(url, mimeType, StreamType.NONE);
-                    session.load(builder, true, 0.0, false);
+                    session.load(builder, true, 0.0, true);
                 }
             } else {
                 logger.warn("Missing media player app - cannot process media.");
             }
             statusUpdater.updateStatus(ThingStatus.ONLINE);
-        } catch (final IOException e) {
-            if ("Unable to load media".equals(e.getMessage())) {
-                logger.warn("Unable to load media: {}", url);
-            } else {
-                logger.debug("Failed playing media: {}", e.getMessage());
-                statusUpdater.updateStatus(ThingStatus.OFFLINE, COMMUNICATION_ERROR,
-                        "IOException while trying to play media: " + e.getMessage());
-            }
+        } catch (LaunchErrorCastException e) {
+            logger.warn("Unable to launch media player: {}", e.getMessage());
+        } catch (ErrorResponseCastException e) {
+            logger.warn("Unable to load media \"{}\": {}", url, e.getMessage());
+        } catch (IOException e) {
+            logger.debug("Failed to play media: {}", e.getMessage());
+            statusUpdater.updateStatus(ThingStatus.OFFLINE, COMMUNICATION_ERROR,
+                    "IOException while trying to play media: " + e.getMessage());
         }
     }
 
