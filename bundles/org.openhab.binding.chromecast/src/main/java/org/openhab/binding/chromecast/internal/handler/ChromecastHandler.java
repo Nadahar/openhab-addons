@@ -76,6 +76,7 @@ public class ChromecastHandler extends BaseThingHandler {
     /**
      * The actual implementation. A new one is created each time #initialize is called.
      */
+    // All access must be guarded by "this"
     private @Nullable Coordinator coordinator;
 
     /**
@@ -103,25 +104,25 @@ public class ChromecastHandler extends BaseThingHandler {
         try {
             inetAddress = java.net.InetAddress.getByName(hostName);
         } catch (UnknownHostException e) {
-            logger.debug("Could not resolve InetAddress from host name: {} with mesage: {}", hostName, e.getMessage());
+            logger.warn("Could not resolve IP address from host name \"{}\": {}", hostName, e.getMessage());
         }
 
         if (inetAddress == null) {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
-                    "Cannot connect to Chromecast. InetAddress could not be resolved from host name");
+                    "Cannot connect to Chromecast. IP address could not be resolved from host name");
             return;
         }
 
         updateStatus(ThingStatus.UNKNOWN);
 
-        Coordinator localCoordinator = coordinator;
-        if (localCoordinator != null && (!localCoordinator.chromeCast.getAddress().equals(inetAddress)
-                || (localCoordinator.chromeCast.getPort() != config.port))) {
-            localCoordinator.destroy();
-            localCoordinator = coordinator = null;
-        }
+        Coordinator localCoordinator;
+        synchronized (this) {
+            localCoordinator = coordinator;
+            if (localCoordinator != null) {
+                localCoordinator.destroy();
+                localCoordinator = coordinator = null;
+            }
 
-        if (localCoordinator == null) {
             ServiceInfo serviceInfo = null;
             InetAddress[] ias;
             ServiceInfo[] serviceInfos = mdnsClient.list(CastDevice.SERVICE_TYPE, Duration.ofMillis(300L));
@@ -136,20 +137,17 @@ public class ChromecastHandler extends BaseThingHandler {
             }
             CastDevice chromecast = serviceInfo != null ? new CastDevice(serviceInfo, true) :  new CastDevice(config.host, inetAddress, null, null, null, null, null, null, 1,
                     null, true);
-            localCoordinator = new Coordinator(this, thing, chromecast, config.refreshRate);
+            localCoordinator = new Coordinator(this, thing, chromecast);
             coordinator = localCoordinator;
 
             executor.submit(() -> {
-                Coordinator c = coordinator;
-                if (c != null) {
-                    c.initialize();
-                }
+                coordinator.initialize();
             });
         }
     }
 
     @Override
-    public void dispose() {
+    public synchronized void dispose() {
         Coordinator localCoordinator = coordinator;
         if (localCoordinator != null) {
             localCoordinator.destroy();
@@ -157,9 +155,13 @@ public class ChromecastHandler extends BaseThingHandler {
         }
     }
 
+    private synchronized @Nullable Coordinator getCoordinator() {
+        return coordinator;
+    }
+
     @Override
     public void handleCommand(final ChannelUID channelUID, final Command command) {
-        Coordinator localCoordinator = coordinator;
+        Coordinator localCoordinator = getCoordinator();
         if (localCoordinator != null) {
             localCoordinator.commander.handleCommand(channelUID, command);
         } else {
@@ -193,7 +195,7 @@ public class ChromecastHandler extends BaseThingHandler {
     }
 
     public PercentType getVolume() throws IOException {
-        Coordinator localCoordinator = coordinator;
+        Coordinator localCoordinator = getCoordinator();
         if (localCoordinator != null) {
             return localCoordinator.statusUpdater.getVolume();
         } else {
@@ -202,7 +204,7 @@ public class ChromecastHandler extends BaseThingHandler {
     }
 
     public void setVolume(PercentType percentType) throws IOException {
-        Coordinator localCoordinator = coordinator;
+        Coordinator localCoordinator = getCoordinator();
         if (localCoordinator != null) {
             localCoordinator.commander.handleVolume(percentType);
         } else {
@@ -211,7 +213,7 @@ public class ChromecastHandler extends BaseThingHandler {
     }
 
     public void stop() {
-        Coordinator localCoordinator = coordinator;
+        Coordinator localCoordinator = getCoordinator();
         if (localCoordinator != null) {
             localCoordinator.commander.handleCloseApp(OnOffType.ON);
         } else {
@@ -225,7 +227,7 @@ public class ChromecastHandler extends BaseThingHandler {
     }
 
     public boolean playURL(@Nullable String title, String url, @Nullable String mediaType) {
-        Coordinator localCoordinator = coordinator;
+        Coordinator localCoordinator = getCoordinator();
         if (localCoordinator != null) {
             localCoordinator.commander.playMedia(title, url, mediaType);
             return true;
@@ -244,6 +246,8 @@ public class ChromecastHandler extends BaseThingHandler {
         private final ChromecastStatusUpdater statusUpdater;
         private final ChromecastScheduler scheduler;
 
+        private volatile ConnectionState connectionState = ConnectionState.UNKNOWN;
+
         /**
          * used internally to represent the connection state
          */
@@ -255,9 +259,7 @@ public class ChromecastHandler extends BaseThingHandler {
             DISCONNECTED
         }
 
-        private ConnectionState connectionState = ConnectionState.UNKNOWN;
-
-        private Coordinator(ChromecastHandler handler, Thing thing, CastDevice chromeCast, long refreshRate) {
+        private Coordinator(ChromecastHandler handler, Thing thing, CastDevice chromeCast) {
             this.chromeCast = chromeCast;
 
             this.scheduler = new ChromecastScheduler(handler.executor, CONNECT_DELAY, this::connect, this::refresh);

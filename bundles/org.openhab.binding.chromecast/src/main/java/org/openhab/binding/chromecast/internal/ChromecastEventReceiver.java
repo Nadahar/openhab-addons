@@ -14,6 +14,8 @@ package org.openhab.binding.chromecast.internal;
 
 import org.digitalmediaserver.cast.event.CastEvent;
 import org.digitalmediaserver.cast.event.CastEvent.CastEventListener;
+import org.digitalmediaserver.cast.message.entity.Device;
+import org.digitalmediaserver.cast.message.response.DeviceUpdatedResponse;
 import org.digitalmediaserver.cast.message.response.MediaStatusResponse;
 import org.digitalmediaserver.cast.message.response.ReceiverStatusResponse;
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -63,6 +65,13 @@ public class ChromecastEventReceiver implements CastEventListener {
                 ReceiverStatusResponse receiverStatusResponse = event.getData(ReceiverStatusResponse.class);
                 statusUpdater.processStatusUpdate(receiverStatusResponse == null ? null : receiverStatusResponse.getStatus());
                 break;
+            case DEVICE_UPDATED:
+                DeviceUpdatedResponse deviceUpdatedResponse = event.getData(DeviceUpdatedResponse.class);
+                Device device;
+                if (deviceUpdatedResponse != null && (device = deviceUpdatedResponse.getDevice()) != null) {
+                    statusUpdater.processDeviceUpdate(device);
+                }
+                break;
             case UNKNOWN:
                 logger.debug("Received an 'UNKNOWN' event (class={})", event.getEventType().getDataClass());
                 break;
@@ -70,7 +79,6 @@ public class ChromecastEventReceiver implements CastEventListener {
             case CUSTOM_MESSAGE:
             case DEVICE_ADDED:
             case DEVICE_REMOVED:
-            case DEVICE_UPDATED:
             case ERROR_RESPONSE:
             case LAUNCH_ERROR:
             case MULTIZONE_STATUS:

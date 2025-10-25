@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.digitalmediaserver.cast.message.entity.Application;
+import org.digitalmediaserver.cast.message.entity.Device;
 import org.digitalmediaserver.cast.message.entity.Media;
 import org.digitalmediaserver.cast.message.entity.MediaStatus;
 import org.digitalmediaserver.cast.message.entity.ReceiverStatus;
@@ -68,6 +69,7 @@ public class ChromecastStatusUpdater {
 
     private final Thing thing;
     private final ChromecastHandler handler;
+
     private static final ByteArrayFileCache IMAGE_CACHE = new ByteArrayFileCache("org.openhab.binding.chromecast");
 
     private @Nullable String appSessionId;
@@ -76,9 +78,9 @@ public class ChromecastStatusUpdater {
     // Null is valid value for last duration
     private @Nullable Double lastDuration = null;
 
-    public ChromecastStatusUpdater(Thing thing, ChromecastHandler callback) {
+    public ChromecastStatusUpdater(Thing thing, ChromecastHandler handler) {
         this.thing = thing;
-        this.handler = callback;
+        this.handler = handler;
     }
 
     public PercentType getVolume() {
@@ -112,6 +114,10 @@ public class ChromecastStatusUpdater {
         updateStatus(ThingStatus.ONLINE);
         updateAppStatus(status.getRunningApplication());
         updateVolumeStatus(status.getVolume());
+    }
+
+    public void processDeviceUpdate(Device device) {
+        updateVolumeStatus(device.getVolume());
     }
 
     public void updateAppStatus(final @Nullable Application application) {
