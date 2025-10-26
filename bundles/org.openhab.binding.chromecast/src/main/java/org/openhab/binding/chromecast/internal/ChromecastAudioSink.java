@@ -44,8 +44,27 @@ public class ChromecastAudioSink extends AudioSinkAsync {
     private static final Set<AudioFormat> SUPPORTED_FORMATS = Set.of(AudioFormat.MP3, AudioFormat.WAV);
     private static final Set<Class<? extends AudioStream>> SUPPORTED_STREAMS = Set.of(AudioStream.class);
 
+    private static final AudioFormat OGA_OPUS = new AudioFormat(AudioFormat.CONTAINER_OGG, "OPUS", null, null,
+        null, null, null);
+    private static final AudioFormat OGA_VORBIS = new AudioFormat(AudioFormat.CONTAINER_OGG, AudioFormat.CODEC_VORBIS, null, null,
+        null, null, null);
+    private static final AudioFormat WEBA_OPUS = new AudioFormat("WEBM", "OPUS", null, null,
+        null, null, null);
+    private static final AudioFormat WEBA_VORBIS = new AudioFormat("WEBM", AudioFormat.CODEC_VORBIS, null, null,
+        null, null, null);
+    private static final AudioFormat M4A_AAC = new AudioFormat("MP4", AudioFormat.CODEC_AAC, null, null,
+        null, null, null);
+    private static final AudioFormat M4A_MP3 = new AudioFormat("MP4", AudioFormat.CODEC_MP3, null, null,
+        null, null, null);
+    private static final AudioFormat FLAC = new AudioFormat("FLAC", "FLAC", null, null,
+        null, null, null);
+
     private static final String MIME_TYPE_AUDIO_WAV = "audio/wav";
-    private static final String MIME_TYPE_AUDIO_MPEG = "audio/mpeg";
+    private static final String MIME_TYPE_AUDIO_MP3 = "audio/mp3";
+    private static final String MIME_TYPE_AUDIO_FLAC = "audio/flac";
+    private static final String MIME_TYPE_AUDIO_M4A = "audio/mp4";
+    private static final String MIME_TYPE_AUDIO_OGA = "audio/ogg";
+    private static final String MIME_TYPE_AUDIO_WEBA = "audio/webm";
 
     private final ChromecastHandler handler;
     private final AudioHTTPServer audioHTTPServer;
@@ -104,9 +123,28 @@ public class ChromecastAudioSink extends AudioSinkAsync {
                     return;
                 }
             }
-            handler.playURL("Notification", url,
-                    AudioFormat.MP3.isCompatible(audioStream.getFormat()) ? MIME_TYPE_AUDIO_MPEG : MIME_TYPE_AUDIO_WAV);
+            handler.playURL("Notification", url, resolveMimeType(audioStream.getFormat()));
         }
+    }
+
+    private String resolveMimeType(AudioFormat audioFormat) {
+        if (AudioFormat.MP3.isCompatible(audioFormat)) {
+            return MIME_TYPE_AUDIO_MP3;
+        }
+        if (AudioFormat.AAC.isCompatible(audioFormat) || M4A_AAC.isCompatible(audioFormat) || M4A_MP3.isCompatible(audioFormat)) {
+            return MIME_TYPE_AUDIO_M4A;
+        }
+        if (OGA_VORBIS.isCompatible(audioFormat) || OGA_OPUS.isCompatible(audioFormat)) {
+            return MIME_TYPE_AUDIO_OGA;
+        }
+        if (WEBA_VORBIS.isCompatible(audioFormat) || WEBA_OPUS.isCompatible(audioFormat)) {
+            return MIME_TYPE_AUDIO_WEBA;
+        }
+        if (FLAC.isCompatible(audioFormat)) {
+            return MIME_TYPE_AUDIO_FLAC;
+        }
+        // Default to WAVE for compatibility
+        return MIME_TYPE_AUDIO_WAV;
     }
 
     private void tryClose(@Nullable InputStream is) {
