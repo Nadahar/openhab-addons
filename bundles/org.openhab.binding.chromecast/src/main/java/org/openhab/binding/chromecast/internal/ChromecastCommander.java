@@ -115,7 +115,7 @@ public class ChromecastCommander {
             if (status == null) {
                 scheduler.cancelRefresh();
             }
-        } catch (IOException ex) {
+        } catch (IOException ex) { //TODO: (Nad) Refresh everything, media++
             logger.debug("Failed to request status: {}", ex.getMessage());
             statusUpdater.updateStatus(ThingStatus.OFFLINE, COMMUNICATION_ERROR, ex.getMessage());
             scheduler.cancelRefresh();
@@ -136,7 +136,7 @@ public class ChromecastCommander {
                 if (mediaStatus != null && mediaStatus.getPlayerState() == PlayerState.IDLE
                         && mediaStatus.getIdleReason() != null
                         && mediaStatus.getIdleReason() != IdleReason.INTERRUPTED) {
-                    closeApp(MEDIA_PLAYER);
+                    closeApp(MEDIA_PLAYER); //TODO: (Nad) Insanity
                 }
             }
         } catch (IOException ex) {
@@ -276,7 +276,7 @@ public class ChromecastCommander {
         }
     }
 
-    public void closeApp(@Nullable String appId) {
+    public void closeApp(@Nullable String appId) { //TODO: (Nad) Completely bugged
         if (appId == null) {
             return;
         }
