@@ -209,9 +209,12 @@ public class ChromecastStatusUpdater {
 
     private void updateMediaInfoStatus(final @Nullable Media media) {
         State duration = UnDefType.UNDEF;
-        String metadataType = MetadataType.GENERIC.name();
+        State metadataTypeState = UnDefType.UNDEF;
         if (media != null) {
-            metadataType = media.getMetadataType().name();
+            MetadataType metadataType = media.getMetadataType();
+            if (metadataType != null) {
+                metadataTypeState = new StringType(metadataType.name());
+            }
 
             lastDuration = media.getDuration();
             // duration can be null when a new song is about to play.
@@ -221,7 +224,7 @@ public class ChromecastStatusUpdater {
         }
 
         handler.updateState(CHANNEL_DURATION, duration);
-        handler.updateState(CHANNEL_METADATA_TYPE, new StringType(metadataType));
+        handler.updateState(CHANNEL_METADATA_TYPE, metadataTypeState);
 
         updateMetadataStatus(
                 media == null || media.getMetadata() == null ? Collections.emptyMap() : media.getMetadata());

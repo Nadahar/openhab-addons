@@ -73,10 +73,12 @@ public class ChromecastEventReceiver implements CastEventListener {
                 }
                 break;
             case UNKNOWN:
-                logger.debug("Received an 'UNKNOWN' event (class={})", event.getEventType().getDataClass());
+                logger.debug("Received an 'UNKNOWN' event (class={}) with data: {}", event.getEventType().getDataClass(), event.getData());
+                break;
+            case CUSTOM_MESSAGE:
+                logger.debug("Received a `CUSTOM_MESSAGE` with data: {}:", event.getData());
                 break;
             case APPLICATION_AVAILABILITY:
-            case CUSTOM_MESSAGE:
             case DEVICE_ADDED:
             case DEVICE_REMOVED:
             case ERROR_RESPONSE: //TODO: (Nad) This should probably be handled

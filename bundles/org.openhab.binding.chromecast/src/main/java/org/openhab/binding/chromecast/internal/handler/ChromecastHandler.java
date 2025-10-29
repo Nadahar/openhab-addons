@@ -24,7 +24,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import javax.jmdns.ServiceInfo;
 
 import org.digitalmediaserver.cast.CastDevice;
-import org.digitalmediaserver.cast.event.CastEvent;
 import org.digitalmediaserver.cast.event.CastEvent.CastEventType;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -282,13 +281,7 @@ public class ChromecastHandler extends BaseThingHandler {
             }
             connectionState = ConnectionState.CONNECTING;
 
-            CastEvent.CastEventType[] subscribedEvents = new CastEventType[] { CastEventType.APPLICATION_AVAILABILITY,
-                    CastEventType.CLOSE, CastEventType.CONNECTED, CastEventType.CUSTOM_MESSAGE,
-                    CastEventType.DEVICE_ADDED, CastEventType.DEVICE_REMOVED, CastEventType.DEVICE_UPDATED,
-                    CastEventType.ERROR_RESPONSE, CastEventType.LAUNCH_ERROR, CastEventType.MEDIA_STATUS,
-                    CastEventType.MULTIZONE_STATUS, CastEventType.RECEIVER_STATUS, CastEventType.UNKNOWN };
-
-            chromeCast.addEventListener(eventReceiver, subscribedEvents);
+            chromeCast.addEventListener(eventReceiver, CastEventType.ALL);
 
             connect();
         }
