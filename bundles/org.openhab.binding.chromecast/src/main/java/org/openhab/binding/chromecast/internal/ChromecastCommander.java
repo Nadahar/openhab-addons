@@ -147,18 +147,28 @@ public class ChromecastCommander {
 
     public void handleCloseApp(final Command command) {
         if (command == OnOffType.ON) {
-            Application app;
+            logger.debug("Executing command 'stop'");
+            ReceiverStatus status;
             try {
-                app = chromeCast.getRunningApplication();
-            } catch (final IOException e) {
+                status = chromeCast.getReceiverStatus(2000L);
+            } catch (IOException e) {
                 logger.info("{} command failed: {}", command, e.getMessage());
                 statusUpdater.updateStatus(ThingStatus.OFFLINE, COMMUNICATION_ERROR, e.getMessage());
                 return;
             }
-
-            if (app != null) {
-                closeApp(app.getAppId());
+            statusUpdater.updateStatus(ThingStatus.ONLINE); //TODO: (Nad) Make setonline/offline
+            Application app;
+            if (status == null || (app = status.getRunningApplication()) == null || app.isIdleScreen()) {
+                logger.debug("No application running, nothing to stop");
+                return;
             }
+            try {
+                status = chromeCast.stopApplication(app, 4000L);
+            } catch (IOException e) {
+                logger.debug("Failed to stop application '{}': {}", app.getDisplayName(), e.getMessage());
+                return;
+            }
+            statusUpdater.processStatusUpdate(status);
         }
     }
 
@@ -268,11 +278,11 @@ public class ChromecastCommander {
                     logger.debug("Application launched: {}", appId);
                 }
             } else {
-                logger.warn("Failed starting app, app probably not installed. Appid: {}", appId);
+                logger.warn("Application ID \"{}\" isn't available for the device", appId);
             }
             statusUpdater.updateStatus(ThingStatus.ONLINE);
         } catch (final IOException e) {
-            logger.warn("Failed starting app: {}. Message: {}", appId, e.getMessage());
+            logger.warn("Failed to start application '{}': {}", appId, e.getMessage());
         }
     }
 
