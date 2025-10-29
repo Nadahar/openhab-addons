@@ -212,7 +212,7 @@ public class ChromecastHandler extends BaseThingHandler {
         }
     }
 
-    public void stop() {
+    public void stop() { //TODO: (Nad) Keep? Check use..
         Coordinator localCoordinator = getCoordinator();
         if (localCoordinator != null) {
             localCoordinator.commander.handleCloseApp(OnOffType.ON);
@@ -314,7 +314,7 @@ public class ChromecastHandler extends BaseThingHandler {
             try {
                 chromeCast.connect();
 
-                statusUpdater.updateMediaStatus(null);
+//                statusUpdater.updateMediaStatus(null); //TODO: (Nad) Needed/desirable?
                 statusUpdater.updateStatus(ThingStatus.ONLINE);
 
                 connectionState = ConnectionState.CONNECTED;

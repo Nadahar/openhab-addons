@@ -57,9 +57,9 @@ public class ChromecastEventReceiver implements CastEventListener {
             case CLOSE:
                 statusUpdater.updateMediaStatus(null);
                 break;
-            case MEDIA_STATUS:
+            case MEDIA_STATUS: //TODO: (Nad) Reset media on app change
                 MediaStatusResponse mediaStatusResponse = event.getData(MediaStatusResponse.class);
-                statusUpdater.updateMediaStatus(mediaStatusResponse == null ? null : mediaStatusResponse.getStatuses());
+                statusUpdater.updateMediaStatus(mediaStatusResponse == null ? null : mediaStatusResponse.getStatuses()); //TODO: (Nad) When does null actually happen?
                 break;
             case RECEIVER_STATUS:
                 ReceiverStatusResponse receiverStatusResponse = event.getData(ReceiverStatusResponse.class);
@@ -79,10 +79,11 @@ public class ChromecastEventReceiver implements CastEventListener {
             case CUSTOM_MESSAGE:
             case DEVICE_ADDED:
             case DEVICE_REMOVED:
-            case ERROR_RESPONSE:
-            case LAUNCH_ERROR:
+            case ERROR_RESPONSE: //TODO: (Nad) This should probably be handled
+            case LAUNCH_ERROR:  //TODO: (Nad) This should probably be handled
             case MULTIZONE_STATUS:
-            default:
+            default: // CustomMessageEvent [namespace: urn:x-cast:com.google.youtube.mdx, string payload: {"type":"mdxSessionStatus","data":{"screenId":"v9nc3i4luec213m8po6iabn8hm","deviceId":"20bf4ba4-9f17-4099-b9f3-852314e70471"}}]
+                     // CustomMessageEvent [namespace: urn:x-cast:com.google.youtube.mdx, string payload: {"type":"mdxSessionStatus","data":{"screenId":"v9nc3i4luec213m8po6iabn8hm","deviceId":"20bf4ba4-9f17-4099-b9f3-852314e70471"}}]
                 logger.debug("Unhandled event type: {} with data {}:", event.getEventType(), event.getData());
                 break;
         }
