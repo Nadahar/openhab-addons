@@ -16,18 +16,21 @@ import static org.openhab.binding.chromecast.internal.ChromecastBindingConstants
 import static org.openhab.core.thing.ThingStatusDetail.COMMUNICATION_ERROR;
 
 import java.io.IOException;
+import java.util.Set;
 
 import org.digitalmediaserver.cast.CastDevice;
 import org.digitalmediaserver.cast.CastException.ErrorResponseCastException;
 import org.digitalmediaserver.cast.CastException.LaunchErrorCastException;
 import org.digitalmediaserver.cast.Session;
 import org.digitalmediaserver.cast.message.entity.Application;
+import org.digitalmediaserver.cast.message.entity.Media;
 import org.digitalmediaserver.cast.message.entity.Media.MediaBuilder;
 import org.digitalmediaserver.cast.message.entity.MediaStatus;
 import org.digitalmediaserver.cast.message.entity.ReceiverStatus;
 import org.digitalmediaserver.cast.message.enumeration.IdleReason;
 import org.digitalmediaserver.cast.message.enumeration.PlayerState;
 import org.digitalmediaserver.cast.message.enumeration.StreamType;
+import org.digitalmediaserver.cast.message.enumeration.SupportedMediaCommand;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.library.types.IncreaseDecreaseType;
@@ -183,27 +186,33 @@ public class ChromecastCommander {
             Application app = chromeCast.getRunningApplication();
             statusUpdater.updateStatus(ThingStatus.ONLINE);
             if (app == null) {
-                logger.debug("{} command ignored because media player app is not running", command);
+                logger.debug("{} command ignored because no application is running", command);
                 return;
             }
 
-            Session session = chromeCast.startSession(SOURCE, app);
-            MediaStatus mediaStatus = session.getMediaStatus();
-            logger.debug("mediaStatus {}", mediaStatus);
-            int mediaSessionId = -1;
-            if (mediaStatus != null) {
-                mediaSessionId = mediaStatus.getMediaSessionId();
+            if (!app.getNamespaces().contains(CastDevice.CAST_MEDIA)) {
+                logger.debug("{} command ignored because the current application ({}) doesn't support media control", command, app.getDisplayName());
+                return;
             }
+            Session session = chromeCast.startSession(SOURCE, app);
+            MediaStatus mediaStatus = session.getMediaStatus(3000L);
+            if (mediaStatus == null) {
+                logger.warn("{} command timed out while trying to get session information", command);
+                return;
+            }
+            logger.debug("mediaStatus {}", mediaStatus);
+            statusUpdater.updateMediaStatus(mediaStatus);
+            int mediaSessionId = mediaStatus.getMediaSessionId();
+            Set<SupportedMediaCommand> supported = SupportedMediaCommand.parseCommands(mediaStatus.getSupportedMediaCommands());
 
             if (command instanceof PlayPauseType playPauseCommand) {
-                if (mediaStatus == null || mediaStatus.getPlayerState() == PlayerState.IDLE) {
+                if (mediaStatus.getPlayerState() == PlayerState.IDLE) {
                     logger.debug("{} command ignored because media is not loaded", command);
                     return;
                 }
                 if (playPauseCommand == PlayPauseType.PLAY) {
                     session.play(mediaSessionId, false);
-                } else if (playPauseCommand == PlayPauseType.PAUSE
-                        && ((mediaStatus.getSupportedMediaCommands() & 0x00000001) == 0x1)) {
+                } else if (playPauseCommand == PlayPauseType.PAUSE && supported.contains(SupportedMediaCommand.PAUSE)) {
                     session.pause(mediaSessionId, false);
                 } else {
                     logger.warn("{} command not supported by current media", command);
@@ -212,12 +221,17 @@ public class ChromecastCommander {
 
             if (command instanceof NextPreviousType) {
                 // Next is implemented by seeking to the end of the current media
-                if (command == NextPreviousType.NEXT) {
-                    Double duration = statusUpdater.getLastDuration();
-                    if (duration != null) {
-                        session.seek(mediaSessionId, (duration.doubleValue() - 5), null, false);
+                if (command == NextPreviousType.NEXT) { //TODO: (Nad) Maybe queue prev/next could be used
+                    if (supported.contains(SupportedMediaCommand.SEEK)) {
+                        Media media = mediaStatus.getMedia();
+                        double duration = media == null ? -1.0 : media.getDuration().doubleValue();
+                        if (duration > 0.0) {
+                            session.seek(mediaSessionId, duration - 2.0, null, true);
+                        } else {
+                            logger.info("{} command failed - unknown media duration", command);
+                        }
                     } else {
-                        logger.info("{} command failed - unknown media duration", command);
+                        logger.warn("{} command not supported by current media", command);
                     }
                 } else {
                     logger.info("{} command not yet implemented", command);
