@@ -170,14 +170,14 @@
 	</channel-type>
 
 	<!--App Information -->
-	<channel-type id="idling" advanced="true">
+	<channel-type id="idling">
 		<item-type>Switch</item-type>
 		<label>Idling</label>
 		<description>Is Chromecast active or idling</description>
 		<state readOnly="true"/>
 	</channel-type>
 
-	<channel-type id="appName" advanced="true">
+	<channel-type id="appName">
 		<item-type>String</item-type>
 		<label>App</label>
 		<description>Name of the currently running application</description>
@@ -195,7 +195,7 @@
 		<state readOnly="false"/>
 	</channel-type>
 
-	<channel-type id="statustext" advanced="true">
+	<channel-type id="statustext">
 		<item-type>String</item-type>
 		<label>App Status</label>
 		<description>Status reported by the current application</description>
@@ -203,7 +203,7 @@
 	</channel-type>
 
 	<!-- Media Information -->
-	<channel-type id="currentTime" advanced="true">
+	<channel-type id="currentTime">
 		<item-type>Number:Time</item-type>
 		<label>Current Time</label>
 		<description>Current time of currently playing media</description>
@@ -211,10 +211,10 @@
 			<tag>Status</tag>
 			<tag>Progress</tag>
 		</tags>
-		<state readOnly="true" pattern="%.0f %unit%"/>
+		<state readOnly="true" pattern="%1$tH:%1$tM:%1$tS"/>
 	</channel-type>
 
-	<channel-type id="duration" advanced="true">
+	<channel-type id="duration">
 		<item-type>Number:Time</item-type>
 		<label>Duration</label>
 		<description>Length of currently playing media</description>
@@ -222,7 +222,7 @@
 			<tag>Status</tag>
 			<tag>Duration</tag>
 		</tags>
-		<state readOnly="true" pattern="%.0f %unit%"/>
+		<state readOnly="true" pattern="%1$tH:%1$tM:%1$tS"/>
 	</channel-type>
 
 	<!-- Metadata Information -->
@@ -236,11 +236,11 @@
 		</tags>
 		<state readOnly="true">
 			<options>
-				<option value="GENERIC"/>
-				<option value="MOVIE"/>
-				<option value="TV_SHOW"/>
-				<option value="AUDIO_TRACK"/>
-				<option value="PHOTO"/>
+				<option value="GENERIC">Generic</option>
+				<option value="MOVIE">Movie</option>
+				<option value="TV_SHOW">TV Show</option>
+				<option value="AUDIO_TRACK">Audio Track</option>
+				<option value="PHOTO">Photo</option>
 			</options>
 		</state>
 	</channel-type>
@@ -331,7 +331,7 @@
 		<state readOnly="true"/>
 	</channel-type>
 
-	<channel-type id="image" advanced="true">
+	<channel-type id="image">
 		<item-type>Image</item-type>
 		<label>Image</label>
 		<description>The image that represents this media. Normally cover-art or scene from a movie</description>
