@@ -18,6 +18,7 @@ import static org.openhab.core.thing.ThingStatusDetail.COMMUNICATION_ERROR;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.digitalmediaserver.cast.CastDevice;
 import org.digitalmediaserver.cast.CastException.ErrorResponseCastException;
@@ -31,6 +32,7 @@ import org.digitalmediaserver.cast.message.entity.ReceiverStatus;
 import org.digitalmediaserver.cast.message.enumeration.IdleReason;
 import org.digitalmediaserver.cast.message.enumeration.PlayerState;
 import org.digitalmediaserver.cast.message.enumeration.StreamType;
+import org.digitalmediaserver.cast.message.enumeration.SupportedMediaCommand;
 import org.digitalmediaserver.cast.util.MetadataUtil;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -188,10 +190,14 @@ public class ChromecastCommander {
             Application app = chromeCast.getRunningApplication();
             statusUpdater.updateStatus(ThingStatus.ONLINE);
             if (app == null) {
-                logger.debug("{} command ignored because media player app is not running", command);
+                logger.debug("{} command ignored because no application is running", command);
                 return;
             }
 
+            if (!app.getNamespaces().contains(CastDevice.CAST_MEDIA)) {
+                logger.debug("{} command ignored because the current application ({}) doesn't support media control", command, app.getDisplayName());
+                return;
+            }
             Session session = chromeCast.startSession(SOURCE, app);
             List<MediaStatus> mediaStatuses = session.getMediaStatus(3000L);
             logger.debug("mediaStatuses {}", mediaStatuses);
@@ -205,6 +211,7 @@ public class ChromecastCommander {
             statusUpdater.updateMediaStatus(mediaStatuses);
             MediaStatus mediaStatus = mediaStatuses.getFirst();
             int mediaSessionId = mediaStatus.getMediaSessionId();
+            Set<SupportedMediaCommand> supported = SupportedMediaCommand.parseCommands(mediaStatus.getSupportedMediaCommands());
 
             if (command instanceof PlayPauseType playPauseCommand) {
                 if (mediaStatus.getPlayerState() == PlayerState.IDLE) {
@@ -213,8 +220,7 @@ public class ChromecastCommander {
                 }
                 if (playPauseCommand == PlayPauseType.PLAY) {
                     session.play(mediaSessionId, false);
-                } else if (playPauseCommand == PlayPauseType.PAUSE
-                        && ((mediaStatus.getSupportedMediaCommands() & 0x00000001) == 0x1)) {
+                } else if (playPauseCommand == PlayPauseType.PAUSE && supported.contains(SupportedMediaCommand.PAUSE)) {
                     session.pause(mediaSessionId, false);
                 } else {
                     logger.warn("{} command not supported by current media", command);
@@ -223,12 +229,17 @@ public class ChromecastCommander {
 
             if (command instanceof NextPreviousType) {
                 // Next is implemented by seeking to the end of the current media
-                if (command == NextPreviousType.NEXT) {
-                    Double duration = statusUpdater.getLastDuration();
-                    if (duration != null) {
-                        session.seek(mediaSessionId, (duration.doubleValue() - 5), null, false);
+                if (command == NextPreviousType.NEXT) { //TODO: (Nad) Maybe queue prev/next could be used
+                    if (supported.contains(SupportedMediaCommand.SEEK)) {
+                        Media media = mediaStatus.getMedia();
+                        double duration = media == null ? -1.0 : media.getDuration().doubleValue();
+                        if (duration > 0.0) {
+                            session.seek(mediaSessionId, duration - 2.0, null, true);
+                        } else {
+                            logger.info("{} command failed - unknown media duration", command);
+                        }
                     } else {
-                        logger.info("{} command failed - unknown media duration", command);
+                        logger.warn("{} command not supported by current media", command);
                     }
                 } else {
                     logger.info("{} command not yet implemented", command);
