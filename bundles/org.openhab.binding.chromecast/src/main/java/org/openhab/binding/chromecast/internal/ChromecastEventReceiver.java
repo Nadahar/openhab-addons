@@ -12,12 +12,9 @@
  */
 package org.openhab.binding.chromecast.internal;
 
-import java.util.List;
-
 import org.digitalmediaserver.cast.event.CastEvent;
 import org.digitalmediaserver.cast.event.CastEvent.CastEventListener;
 import org.digitalmediaserver.cast.message.entity.Device;
-import org.digitalmediaserver.cast.message.entity.MediaStatus;
 import org.digitalmediaserver.cast.message.response.DeviceUpdatedResponse;
 import org.digitalmediaserver.cast.message.response.MediaStatusResponse;
 import org.digitalmediaserver.cast.message.response.ReceiverStatusResponse;
@@ -65,10 +62,7 @@ public class ChromecastEventReceiver implements CastEventListener {
                 if (mediaStatusResponse == null) {
                     statusUpdater.updateMediaStatus(null); //TODO: (Nad) When does this actually happen?
                 } else {
-                    List<MediaStatus> mediaStatuses = mediaStatusResponse.getStatuses();
-                    for (MediaStatus mediaStatus : mediaStatuses) {
-                        statusUpdater.updateMediaStatus(mediaStatus);
-                    }
+                    statusUpdater.updateMediaStatus(mediaStatusResponse.getStatuses());
                 }
                 break;
             case RECEIVER_STATUS:
