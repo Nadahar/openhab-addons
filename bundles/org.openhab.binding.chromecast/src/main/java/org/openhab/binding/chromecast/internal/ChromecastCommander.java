@@ -16,6 +16,10 @@ import static org.openhab.binding.chromecast.internal.ChromecastBindingConstants
 import static org.openhab.core.thing.ThingStatusDetail.COMMUNICATION_ERROR;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -172,7 +176,7 @@ public class ChromecastCommander {
             try {
                 status = chromeCast.stopApplication(app, 4000L);
             } catch (IOException e) {
-                logger.debug("Failed to stop application '{}': {}", app.getDisplayName(), e.getMessage());
+                logger.debug("Failed to stop application '{}' ({}): {}", app.getAppId(), app.getDisplayName(), e.getMessage());
                 return;
             }
             statusUpdater.processStatusUpdate(status);
@@ -187,7 +191,7 @@ public class ChromecastCommander {
 
     private void handleControl(final Command command) {
         try {
-            Application app = chromeCast.getRunningApplication();
+            Application app = chromeCast.getRunningApplication(); //TODO: (Nad) Check media control namespace
             statusUpdater.updateStatus(ThingStatus.ONLINE);
             if (app == null) {
                 logger.debug("{} command ignored because no application is running", command);
@@ -195,7 +199,7 @@ public class ChromecastCommander {
             }
 
             if (!app.getNamespaces().contains(CastDevice.CAST_MEDIA)) {
-                logger.debug("{} command ignored because the current application ({}) doesn't support media control", command, app.getDisplayName());
+                logger.debug("{} command ignored because the current application '{}' ({}) doesn't support media control", command, app.getAppId(), app.getDisplayName());
                 return;
             }
             Session session = chromeCast.startSession(SOURCE, app);
@@ -288,61 +292,97 @@ public class ChromecastCommander {
         }
     }
 
-    public void startApp(@Nullable String appId) {
-        if (appId == null) {
-            return;
+    @Nullable
+    public ReceiverStatus startApp(@Nullable String appId) {
+        if (appId == null || appId.isBlank()) {
+            return null;
         }
+        ReceiverStatus result = null;
         try {
-            if (chromeCast.isApplicationAvailable(appId)) {
-                if (!chromeCast.isApplicationRunning(appId)) {
-                    final ReceiverStatus receiverStatus = chromeCast.launchApplication(appId, true);
-                    statusUpdater.setAppSessionId(receiverStatus.getRunningApplication().getSessionId());
-                    logger.debug("Application launched: {}", appId);
-                }
+            result = chromeCast.getReceiverStatus(2000L);
+            if (result == null) { //TODO: (Nad) Check if it can really be null
+                return result;
+            }
+            Application app = result.getRunningApplication();
+            if (app != null && appId.equals(app.getAppId())) {
+                logger.debug("Not starting application '{}' ({}) since it's already running", appId, app.getDisplayName());
+            } else if (chromeCast.isApplicationAvailable(appId)) {
+                result = chromeCast.launchApplication(appId, true); //TODO: (Nad) Null
+                statusUpdater.setAppSessionId(result.getRunningApplication().getSessionId()); //TODO: (Nad) Investigate
+                logger.debug("Application launched: {}", appId);
             } else {
                 logger.warn("Application ID \"{}\" isn't available for the device", appId);
             }
             statusUpdater.updateStatus(ThingStatus.ONLINE);
+            if (result != null) {
+                statusUpdater.processStatusUpdate(result);
+            }
         } catch (final IOException e) {
             logger.warn("Failed to start application '{}': {}", appId, e.getMessage());
         }
+        return result;
     }
 
-    public void closeApp(@Nullable String appId) { //TODO: (Nad) Completely bugged
+    public void closeApp(@Nullable String appId) {
         if (appId == null) {
             return;
         }
 
         try {
-            if (chromeCast.isApplicationAvailable(appId)) {
-                Application app = chromeCast.getRunningApplication();
-                if (app.getAppId().equals(CastDevice.DEFAULT_MEDIA_RECEIVER_APP_ID) && app.getSessionId().equals(statusUpdater.getAppSessionId())) {
-                    chromeCast.stopApplication(app, false);
-                    logger.debug("Media player app stopped");
-                }
+            ReceiverStatus status = chromeCast.getReceiverStatus(3000L);
+            if (status == null) {
+                logger.debug("Failed to get receiver status while trying to close application");
+                return;
             }
+            Application application = status.getRunningApplication();
+            if (application == null || !appId.equals(application.getAppId())) {
+                logger.debug("Can't close application '{}' because it's not currently running", appId);
+                return;
+            }
+            status = chromeCast.stopApplication(application, 4000L);
+            logger.debug("Application '{}' ({}) closed", appId, application.getDisplayName());
+            statusUpdater.processStatusUpdate(status);
         } catch (final IOException e) {
-            logger.debug("Failed stopping app: {} with message: {}", appId, e.getMessage());
+            logger.debug("Failed to stop application '{}': {}", appId, e.getMessage());
         }
     }
 
-    public void playMedia(@Nullable String title, @Nullable String url, @Nullable String mimeType) {
+    public void playMedia(@Nullable String title, @Nullable String url, @Nullable String mimeType) { //TODO: (Nad) Report success
         if (url == null || url.isBlank()) {
             return;
         }
-        startApp(CastDevice.DEFAULT_MEDIA_RECEIVER_APP_ID);
+        ReceiverStatus status = startApp(CastDevice.DEFAULT_MEDIA_RECEIVER_APP_ID);
+        if (status == null) {
+            logger.warn("Unable to start media player - cannot play media");
+            return;
+        }
+        // Google devices ignore DHCP assigned name resolution services and are hardcoded to use Google's DNS servers.
+        // Therefore, they won't be able to resolve local names, so let's try to replace names with IP addresses for
+        // private IP addresses.
+        String resolvedUrl;
         try {
-            if (url != null && chromeCast.isApplicationRunning(CastDevice.DEFAULT_MEDIA_RECEIVER_APP_ID)) {
-                // If the current track is paused, launching a new request results in nothing happening, therefore
-                // resume current track.
-                Session session = chromeCast.startSession(SOURCE, chromeCast.getRunningApplication());
+            URI uri = URI.create(url);
+            InetAddress destination = InetAddress.getByName(uri.getHost());
+            if (destination.isSiteLocalAddress()) {
+                resolvedUrl = new URI(uri.getScheme(), uri.getUserInfo(), destination.getHostAddress(), uri.getPort(), uri.getPath(), uri.getQuery(), uri.getFragment()).toString();
+            } else {
+                resolvedUrl = url;
+            }
+        } catch (IllegalArgumentException | UnknownHostException | URISyntaxException e) {
+            // Not a valid URI or an unknown host, so just use the provided string and hope for the best
+            resolvedUrl = url;
+        }
+        try {
+            Application app;
+            if ((app = status.getRunningApplication()) != null && CastDevice.DEFAULT_MEDIA_RECEIVER_APP_ID.equals(app.getAppId())) {
+                Session session = chromeCast.startSession(SOURCE, app); //TODO: (Nad) Check if this trick is necessary
                 List<MediaStatus> mses = session.getMediaStatus();
                 MediaStatus ms;
-                MediaBuilder mb = Media.builder(url, mimeType, StreamType.BUFFERED);
+                MediaBuilder mb = Media.builder(resolvedUrl, mimeType, StreamType.BUFFERED); //TODO: (Nad) Blank mimetype..
                 if (title != null && !title.isBlank()) {
                     mb.metadata(Map.of(MetadataUtil.Generic.TITLE, title));
                 }
-                ms = session.load(mb, true, null, true);
+                ms = session.load(mb, true, null, true); //TODO: (Nad) Fix MediaStatus
                 statusUpdater.updateMediaStatus(mses);
             } else {
                 logger.warn("Unable to start media player - cannot play media");
@@ -351,7 +391,7 @@ public class ChromecastCommander {
         } catch (LaunchErrorCastException e) {
             logger.warn("Unable to launch media player: {}", e.getMessage());
         } catch (ErrorResponseCastException e) {
-            logger.warn("Unable to load media \"{}\": {}", url, e.getMessage());
+            logger.warn("Unable to load media \"{}\": {}", resolvedUrl, e.getMessage());
         } catch (IOException e) {
             logger.debug("Failed to play media: {}", e.getMessage());
             statusUpdater.updateStatus(ThingStatus.OFFLINE, COMMUNICATION_ERROR,
@@ -359,7 +399,7 @@ public class ChromecastCommander {
         }
     }
 
-    public void dispose() {
+    public void dispose() { //TODO: (Nad) Keep?
         scheduler.destroy();
         if (chromeCast.isConnected()) {
             try {
