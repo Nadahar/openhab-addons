@@ -107,7 +107,7 @@ public class ChromecastStatusUpdater {
             return;
         }
 
-        if (status.getApplications() == null) {
+        if (status.getRunningApplications() == null) {
             this.appSessionId = null; //TODO: (Nad) Investigate
         }
 
