@@ -377,12 +377,12 @@ public class ChromecastCommander {
             if ((app = status.getRunningApplication()) != null && CastDevice.DEFAULT_MEDIA_RECEIVER_APP_ID.equals(app.getAppId())) {
                 Session session = chromeCast.startSession(SOURCE, app); //TODO: (Nad) Check if this trick is necessary
                 List<MediaStatus> mses = session.getMediaStatus();
-                MediaStatus ms;
+                statusUpdater.updateMediaStatus(mses);
                 MediaBuilder mb = Media.builder(resolvedUrl, mimeType, StreamType.BUFFERED); //TODO: (Nad) Blank mimetype..
                 if (title != null && !title.isBlank()) {
                     mb.metadata(Map.of(MetadataUtil.Generic.TITLE, title));
                 }
-                ms = session.load(mb, true, null, true); //TODO: (Nad) Fix MediaStatus
+                mses = session.load(mb, true, null, true);
                 statusUpdater.updateMediaStatus(mses);
             } else {
                 logger.warn("Unable to start media player - cannot play media");
