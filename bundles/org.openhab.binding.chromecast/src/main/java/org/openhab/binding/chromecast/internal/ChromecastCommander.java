@@ -32,12 +32,12 @@ import org.digitalmediaserver.cast.message.entity.Application;
 import org.digitalmediaserver.cast.message.entity.Media;
 import org.digitalmediaserver.cast.message.entity.Media.MediaBuilder;
 import org.digitalmediaserver.cast.message.entity.MediaStatus;
+import org.digitalmediaserver.cast.message.entity.Metadata;
 import org.digitalmediaserver.cast.message.entity.ReceiverStatus;
 import org.digitalmediaserver.cast.message.enumeration.IdleReason;
 import org.digitalmediaserver.cast.message.enumeration.PlayerState;
 import org.digitalmediaserver.cast.message.enumeration.StreamType;
 import org.digitalmediaserver.cast.message.enumeration.SupportedMediaCommand;
-import org.digitalmediaserver.cast.util.MetadataUtil;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.library.types.IncreaseDecreaseType;
@@ -380,7 +380,7 @@ public class ChromecastCommander {
                 statusUpdater.updateMediaStatus(mses);
                 MediaBuilder mb = Media.builder(resolvedUrl, mimeType, StreamType.BUFFERED); //TODO: (Nad) Blank mimetype..
                 if (title != null && !title.isBlank()) {
-                    mb.metadata(Map.of(MetadataUtil.Generic.TITLE, title));
+                    mb.metadata(Map.of(Metadata.Generic.TITLE, title));
                 }
                 mses = session.load(mb, true, null, true);
                 statusUpdater.updateMediaStatus(mses);
