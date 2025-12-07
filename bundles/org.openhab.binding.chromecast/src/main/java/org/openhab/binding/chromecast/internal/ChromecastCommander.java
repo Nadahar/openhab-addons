@@ -40,6 +40,7 @@ import org.digitalmediaserver.cast.message.enumeration.StreamType;
 import org.digitalmediaserver.cast.message.enumeration.SupportedMediaCommand;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.chromecast.internal.util.ChromecastUtil;
 import org.openhab.core.library.types.IncreaseDecreaseType;
 import org.openhab.core.library.types.NextPreviousType;
 import org.openhab.core.library.types.OnOffType;
@@ -378,7 +379,16 @@ public class ChromecastCommander {
                 Session session = chromeCast.startSession(SOURCE, app); //TODO: (Nad) Check if this trick is necessary
                 List<MediaStatus> mses = session.getMediaStatus();
                 statusUpdater.updateMediaStatus(mses);
-                MediaBuilder mb = Media.builder(resolvedUrl, mimeType, StreamType.BUFFERED); //TODO: (Nad) Blank mimetype..
+                String contentType = mimeType;
+                if (contentType == null || contentType.isBlank()) {
+                    // Cast devices require a content type, so try to resolve one
+                    contentType = ChromecastUtil.inferMimeType(resolvedUrl);
+                    if (contentType == null || contentType.isBlank()) {
+                        logger.warn("Unable to resolve content type for \"{}\" - cannot play media", resolvedUrl);
+                        return;
+                    }
+                }
+                MediaBuilder mb = Media.builder(resolvedUrl, contentType, StreamType.BUFFERED);
                 if (title != null && !title.isBlank()) {
                     mb.metadata(Map.of(Metadata.Generic.TITLE, title));
                 }
