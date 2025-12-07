@@ -80,6 +80,36 @@ public class ChromecastUtil {
     }
 
     /**
+     * Returns the filename part of the specified path, with or without extension.
+     *
+     * @param path the path from which to extract the filename.
+     * @param stripExtension {@code true} to strip the extension from returned filename.
+     * @return The resulting filename, possibly an empty string.
+     */
+    public static String getFilename(@Nullable String path, boolean stripExtension) {
+        if (path == null || path.isBlank()) {
+            return "";
+        }
+        char[] pathArray = path.toCharArray();
+        int idx = -1;
+        for (int i = pathArray.length - 1; i >= 0; i--) {
+            if (pathArray[i] == '/' || pathArray[i] == '\\') {
+                idx = i;
+                break;
+            }
+        }
+        if (idx == path.length() - 1) {
+            return "";
+        }
+        String filename = idx < 0 ? path : path.substring(idx + 1);
+        if (!stripExtension) {
+            return filename;
+        }
+        idx = getExtensionIndex(filename);
+        return idx < 0 ? filename : filename.substring(0, idx);
+    }
+
+    /**
      * Tries to infer the MIME type of a resource based on file extension. Known file extensions are limited,
      * so this is in no way an extensive evaluation.
      *

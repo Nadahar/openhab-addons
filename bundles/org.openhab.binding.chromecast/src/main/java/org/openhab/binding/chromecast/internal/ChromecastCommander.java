@@ -389,8 +389,12 @@ public class ChromecastCommander {
                     }
                 }
                 MediaBuilder mb = Media.builder(resolvedUrl, contentType, StreamType.BUFFERED);
-                if (title != null && !title.isBlank()) {
-                    mb.metadata(Map.of(Metadata.Generic.TITLE, title));
+                String tmpTitle = title;
+                if (tmpTitle == null) {
+                    tmpTitle = ChromecastUtil.getFilename(resolvedUrl, true);
+                }
+                if (!tmpTitle.isBlank()) {
+                    mb.metadata(Map.of(Metadata.Generic.TITLE, tmpTitle));
                 }
                 mses = session.load(mb, true, null, true);
                 statusUpdater.updateMediaStatus(mses);
