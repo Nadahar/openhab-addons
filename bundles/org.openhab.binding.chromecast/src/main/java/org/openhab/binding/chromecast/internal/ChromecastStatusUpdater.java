@@ -212,6 +212,7 @@ public class ChromecastStatusUpdater {
     private void updateMediaInfoStatus(final @Nullable Media media) {
         State duration = UnDefType.UNDEF;
         State metadataTypeState = UnDefType.UNDEF;
+        State playUri = UnDefType.UNDEF;
         if (media != null) {
             MetadataType metadataType = media.getMetadataType();
             if (metadataType != null) {
@@ -223,10 +224,15 @@ public class ChromecastStatusUpdater {
             if (media.getDuration() != null) {
                 duration = new QuantityType<>(media.getDuration(), Units.SECOND);
             }
+            String url = media.getUrl();
+            if (url != null) {
+                playUri = new StringType(url);
+            }
         }
 
         handler.updateState(CHANNEL_DURATION, duration);
         handler.updateState(CHANNEL_METADATA_TYPE, metadataTypeState);
+        handler.updateState(CHANNEL_PLAY_URI, playUri);
 
         updateMetadataStatus(
                 media == null || media.getMetadata() == null ? Collections.emptyMap() : media.getMetadata());
@@ -331,6 +337,8 @@ public class ChromecastStatusUpdater {
             state = new DecimalType(d);
         } else if (value instanceof Integer i) {
             state = new DecimalType(i.longValue());
+        } else if (value instanceof Long l) {
+            state = new DecimalType(l.longValue());
         } else if (value instanceof String s) {
             state = new StringType(s);
         } else if (value instanceof ZonedDateTime datetime) {
