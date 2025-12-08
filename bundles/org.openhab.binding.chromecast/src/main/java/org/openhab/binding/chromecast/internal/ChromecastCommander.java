@@ -97,7 +97,7 @@ public class ChromecastCommander {
                 handleCloseApp(command);
                 break;
             case CHANNEL_VOLUME:
-                handleVolume(command);
+                handleVolume(command); //TODO: (Nad) Relative track position
                 break;
             case CHANNEL_MUTE:
                 handleMute(command);

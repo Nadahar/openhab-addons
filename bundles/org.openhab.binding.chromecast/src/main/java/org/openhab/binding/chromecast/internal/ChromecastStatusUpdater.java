@@ -306,7 +306,7 @@ public class ChromecastStatusUpdater {
         return null;
     }
 
-    private @Nullable RawType downloadImageFromCache(String url) {
+    private @Nullable RawType downloadImageFromCache(String url) { // TODO: (Nad) Sync on static instance
         if (IMAGE_CACHE.containsKey(url)) {
             try {
                 byte[] bytes = IMAGE_CACHE.get(url);
@@ -361,7 +361,7 @@ public class ChromecastStatusUpdater {
                 || CHANNEL_CREATION_DATE.equals(channelId)) {
             Object dateObj = metadata.get(channelId);
             if (dateObj instanceof String dateString) {
-                return ZonedDateTime.ofInstant(Instant.parse(dateString), ZoneId.systemDefault());
+                return ZonedDateTime.ofInstant(Instant.parse(dateString), ZoneId.systemDefault()); // TODO: (Nad) Probably shouldnt be zoned
             } else {
                 return null;
             }
