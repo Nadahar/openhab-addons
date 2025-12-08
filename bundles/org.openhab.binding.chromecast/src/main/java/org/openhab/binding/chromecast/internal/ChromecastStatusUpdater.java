@@ -24,12 +24,14 @@ import java.util.Map;
 
 import org.digitalmediaserver.cast.message.entity.Application;
 import org.digitalmediaserver.cast.message.entity.Device;
+import org.digitalmediaserver.cast.message.entity.Image;
 import org.digitalmediaserver.cast.message.entity.Media;
 import org.digitalmediaserver.cast.message.entity.MediaStatus;
 import org.digitalmediaserver.cast.message.entity.ReceiverStatus;
 import org.digitalmediaserver.cast.message.entity.Volume;
 import org.digitalmediaserver.cast.message.enumeration.MetadataType;
 import org.digitalmediaserver.cast.message.enumeration.PlayerState;
+import org.digitalmediaserver.cast.util.MetadataUtil;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.chromecast.internal.handler.ChromecastHandler;
@@ -262,24 +264,13 @@ public class ChromecastStatusUpdater {
         }
 
         // Channel name and metadata key don't match.
-        Object imagesValue = metadata.get("images");
-        if (imagesValue == null) {
+        List<Image> images = MetadataUtil.extractImages(metadata);
+        if (images.isEmpty()) {
             handler.updateState(CHANNEL_IMAGE_SRC, UnDefType.UNDEF);
             return;
         }
 
-        String imageSrc = null;
-        if (imagesValue instanceof List<?> imagesList) {
-            @SuppressWarnings("unchecked")
-            List<Map<String, String>> strings = (List<Map<String, String>>) imagesList;
-            for (Map<String, String> stringMap : strings) {
-                String url = stringMap.get("url");
-                if (url != null) {
-                    imageSrc = url;
-                    break;
-                }
-            }
-        }
+        String imageSrc = images.getFirst().getUrl();
 
         if (handler.isLinked(CHANNEL_IMAGE_SRC)) {
             handler.updateState(CHANNEL_IMAGE_SRC, imageSrc == null ? UnDefType.UNDEF : new StringType(imageSrc));
