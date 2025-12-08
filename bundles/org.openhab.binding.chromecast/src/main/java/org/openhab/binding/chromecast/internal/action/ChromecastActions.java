@@ -75,12 +75,35 @@ public class ChromecastActions implements ThingActions {
         }
     }
 
+    @RuleAction(label = "@text/playURLTitleTypeActionLabel", description = "@text/playURLTitleTypeActionDescription")
+    public @ActionOutput(name = "result", label = "Success", type = "java.lang.Boolean") Boolean playURL(
+            @ActionInput(name = "title") @Nullable String title, @ActionInput(name = "url") @Nullable String url,
+            @ActionInput(name = "mediaType") @Nullable String mediaType) {
+        if (url == null) {
+            logger.warn("Cannot Play as URL is missing.");
+            return false;
+        }
+
+        final ChromecastHandler handler = this.handler;
+        if (handler == null) {
+            logger.warn("Handler is null, cannot tweet.");
+            return false;
+        } else {
+            return handler.playURL(title, url, mediaType);
+        }
+    }
+
     public static boolean playURL(ThingActions actions, @Nullable String url) {
         return ((ChromecastActions) actions).playURL(url);
     }
 
     public static boolean playURL(ThingActions actions, @Nullable String url, @Nullable String mediaType) {
         return ((ChromecastActions) actions).playURL(url, mediaType);
+    }
+
+    public static boolean playURL(ThingActions actions, @Nullable String title, @Nullable String url,
+            @Nullable String mediaType) {
+        return ((ChromecastActions) actions).playURL(title, url, mediaType);
     }
 
     @Override
