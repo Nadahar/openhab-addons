@@ -328,7 +328,19 @@ public class ChromecastStatusUpdater {
             return;
         }
 
-        Object value = getValue(channelUID.getId(), metadata);
+        String key = channelUID.getId();
+        if (!metadata.containsKey(key)) {
+            // Some keys aren't always what they should, and must be "translated"
+            switch (key) {
+                case "episodeNumber":
+                    key = "episode";
+                    break;
+                case "seasonNumber":
+                    key = "season";
+                    break;
+            }
+        }
+        Object value = getValue(key, metadata);
         State state;
 
         if (value == null) {
