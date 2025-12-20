@@ -215,6 +215,8 @@ public class ChromecastStatusUpdater {
         State playUri = UnDefType.UNDEF;
         if (media != null) {
             MetadataType metadataType = media.getMetadataType();
+            logger.error("Media: {}", media); //TODO: (Nad) Temp test
+            logger.error("Metadata: {}", media.getMetadata()); //TODO: (Nad) Temp test
             if (metadataType != null) {
                 metadataTypeState = new StringType(metadataType.name());
             }
