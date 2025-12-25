@@ -15,8 +15,6 @@ package org.openhab.binding.tuya.internal.local.handlers;
 import static org.openhab.binding.tuya.internal.local.CommandType.BROADCAST_LPV34;
 import static org.openhab.binding.tuya.internal.local.CommandType.DP_QUERY;
 import static org.openhab.binding.tuya.internal.local.CommandType.DP_QUERY_NOT_SUPPORTED;
-import static org.openhab.binding.tuya.internal.local.CommandType.HEART_BEAT;
-import static org.openhab.binding.tuya.internal.local.CommandType.SESS_KEY_NEG_RESPONSE;
 import static org.openhab.binding.tuya.internal.local.CommandType.STATUS;
 import static org.openhab.binding.tuya.internal.local.CommandType.UDP;
 import static org.openhab.binding.tuya.internal.local.CommandType.UDP_NEW;
@@ -104,7 +102,7 @@ public class TuyaDecoder extends ByteToMessageDecoder {
 
         if (prefix == 0x006699 && protocol != V3_5) {
             protocol = V3_5;
-            logger.trace("Set protocol version to {}", protocol.getString());
+            logger.debug("Set protocol version to {}", protocol.getString());
         }
 
         int headerLength = protocol == V3_5 ? 22 : 16;
@@ -194,13 +192,10 @@ public class TuyaDecoder extends ByteToMessageDecoder {
         }
 
         MessageWrapper<?> m;
-        String decodedString;
-
         if (commandType == UDP) {
             // UDP is unencrypted
-            decodedString = new String(payload);
             m = new MessageWrapper<>(commandType,
-                    Objects.requireNonNull(gson.fromJson(decodedString, DiscoveryMessage.class)));
+                    Objects.requireNonNull(gson.fromJson(new String(payload), DiscoveryMessage.class)));
         } else {
             byte[] decodedMessage = switch (protocol) {
                 case V3_5 -> CryptoUtil.decryptAesGcm(payload, sessionKey, header, null);
@@ -229,9 +224,8 @@ public class TuyaDecoder extends ByteToMessageDecoder {
                         HexUtils.bytesToHex(decodedMessage));
             }
 
-            decodedString = new String(decodedMessage).trim();
-
             try {
+                String decodedString = new String(decodedMessage).trim();
                 if (commandType == DP_QUERY && "json obj data unvalid".equals(decodedString)) {
                     // "json obj data unvalid" would also result in a JSONSyntaxException but is a known error when
                     // DP_QUERY is not supported by the device. Using a CONTROL message with null values is a known
@@ -245,10 +239,8 @@ public class TuyaDecoder extends ByteToMessageDecoder {
                 } else if (commandType == UDP_NEW || commandType == BROADCAST_LPV34) {
                     m = new MessageWrapper<>(commandType,
                             Objects.requireNonNull(gson.fromJson(decodedString, DiscoveryMessage.class)));
-                } else if (commandType == SESS_KEY_NEG_RESPONSE) {
-                    m = new MessageWrapper<>(commandType, decodedMessage);
                 } else {
-                    m = new MessageWrapper<>(commandType, decodedString);
+                    m = new MessageWrapper<>(commandType, decodedMessage);
                 }
             } catch (JsonSyntaxException e) {
                 logger.warn("{}{} failed to parse JSON: {}", deviceId,
@@ -257,15 +249,7 @@ public class TuyaDecoder extends ByteToMessageDecoder {
             }
         }
 
-        if (m.commandType != HEART_BEAT && m.commandType != UDP_NEW && m.commandType != UDP
-                && m.commandType != BROADCAST_LPV34) {
-            logger.debug("{}{}: Received {}", deviceId, Objects.requireNonNullElse(ctx.channel().remoteAddress(), ""),
-                    m);
-        } else {
-            logger.trace("{}{}: Received {}", deviceId, Objects.requireNonNullElse(ctx.channel().remoteAddress(), ""),
-                    m);
-        }
-
+        logger.debug("{}{}: Received {}", deviceId, Objects.requireNonNullElse(ctx.channel().remoteAddress(), ""), m);
         out.add(m);
     }
 }

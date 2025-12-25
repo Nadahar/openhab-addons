@@ -88,7 +88,7 @@ public class TuyaEncoder extends MessageToByteEncoder<MessageWrapper<?>> {
         if (msg.content == null || msg.content instanceof Map<?, ?>) {
             Map<String, Object> content = (Map<String, Object>) msg.content;
             Map<String, Object> payload = new HashMap<>();
-            if (msg.commandType == REQ_DEVINFO || msg.commandType == DP_REFRESH) {
+            if (msg.commandType == REQ_DEVINFO) {
                 if (content != null) {
                     payload.putAll(content);
                 }
@@ -112,20 +112,15 @@ public class TuyaEncoder extends MessageToByteEncoder<MessageWrapper<?>> {
                 }
             }
 
-            if (msg.commandType != REQ_DEVINFO && msg.commandType != HEART_BEAT) {
-                logger.debug("{}{}: Sending {}, payload {}", deviceId,
-                        Objects.requireNonNullElse(ctx.channel().remoteAddress(), ""), msg.commandType, payload);
-            } else {
-                logger.trace("{}{}: Sending {}, payload {}", deviceId,
-                        Objects.requireNonNullElse(ctx.channel().remoteAddress(), ""), msg.commandType, payload);
-            }
+            logger.debug("{}{}: Sending {}, payload {}", deviceId,
+                    Objects.requireNonNullElse(ctx.channel().remoteAddress(), ""), msg.commandType, payload);
 
             String json = gson.toJson(payload);
             payloadBytes = json.getBytes(StandardCharsets.UTF_8);
         } else if (msg.content instanceof byte[] contentBytes) {
             if (logger.isDebugEnabled()) {
-                logger.debug("{}{}: Sending {}, payload {}", deviceId,
-                        Objects.requireNonNullElse(ctx.channel().remoteAddress(), ""), msg.commandType,
+                logger.debug("{}{}: Sending payload {}", deviceId,
+                        Objects.requireNonNullElse(ctx.channel().remoteAddress(), ""),
                         HexUtils.bytesToHex(contentBytes));
             }
             payloadBytes = contentBytes.clone();

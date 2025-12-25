@@ -33,6 +33,21 @@ public class UserEventHandler extends ChannelDuplexHandler {
     private final Logger logger = LoggerFactory.getLogger(UserEventHandler.class);
 
     @Override
+    public void userEventTriggered(@NonNullByDefault({}) ChannelHandlerContext ctx, @NonNullByDefault({}) Object evt) {
+        if (!ctx.channel().hasAttr(TuyaDevice.DEVICE_ID_ATTR)) {
+            logger.warn("Failed to retrieve deviceId from ChannelHandlerContext. This is a bug.");
+            return;
+        }
+        String deviceId = ctx.channel().attr(TuyaDevice.DEVICE_ID_ATTR).get();
+
+        if (evt instanceof DisposeEvent) {
+            logger.debug("{}{}: Received DisposeEvent, closing channel", deviceId,
+                    Objects.requireNonNullElse(ctx.channel().remoteAddress(), ""));
+            ctx.close();
+        }
+    }
+
+    @Override
     public void exceptionCaught(@NonNullByDefault({}) ChannelHandlerContext ctx, @NonNullByDefault({}) Throwable cause)
             throws Exception {
         if (!ctx.channel().hasAttr(TuyaDevice.DEVICE_ID_ATTR)) {
@@ -44,13 +59,16 @@ public class UserEventHandler extends ChannelDuplexHandler {
         String deviceId = ctx.channel().attr(TuyaDevice.DEVICE_ID_ATTR).get();
 
         if (cause instanceof IOException) {
-            logger.debug("{}{}: {}, closing channel.", deviceId,
-                    Objects.requireNonNullElse(ctx.channel().remoteAddress(), ""), cause.getMessage());
+            logger.debug("{}{}: IOException caught, closing channel.", deviceId,
+                    Objects.requireNonNullElse(ctx.channel().remoteAddress(), ""), cause);
+            logger.debug("IOException caught: ", cause);
         } else {
             logger.warn("{}{}: {} caught, closing the channel", deviceId,
                     Objects.requireNonNullElse(ctx.channel().remoteAddress(), ""), cause.getClass(), cause);
         }
-
         ctx.close();
+    }
+
+    public static class DisposeEvent {
     }
 }
