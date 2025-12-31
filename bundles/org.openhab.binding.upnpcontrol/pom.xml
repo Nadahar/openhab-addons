@@ -14,4 +14,11 @@
 
   <name>openHAB Add-ons :: Bundles :: UPnP Control Binding</name>
 
+  <dependencies>
+    <dependency>
+      <groupId>org.jupnp</groupId>
+      <artifactId>org.jupnp.support</artifactId>
+      <version>3.0.4</version>
+    </dependency>
+  </dependencies>
 </project>

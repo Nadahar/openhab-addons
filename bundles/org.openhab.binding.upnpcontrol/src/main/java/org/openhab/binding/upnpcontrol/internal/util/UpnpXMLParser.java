@@ -78,16 +78,14 @@ public class UpnpXMLParser {
         RenderingControlEventHandler handler = new RenderingControlEventHandler();
         try {
             SAXParserFactory factory = SAXParserFactory.newInstance();
-            SAXParser saxParser = factory.newSAXParser();
-            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            saxParser.getXMLReader().setFeature("http://xml.org/sax/features/external-general-entities", false);
             factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            factory.setXIncludeAware(false);
+            SAXParser saxParser = factory.newSAXParser();
+            saxParser.getXMLReader().setFeature("http://xml.org/sax/features/external-general-entities", false);
             saxParser.parse(new InputSource(new StringReader(xml)), handler);
-        } catch (IOException e) {
-            // This should never happen - we're not performing I/O!
-            LOGGER.error("Could not parse Rendering Control from string '{}'", xml);
-        } catch (SAXException | ParserConfigurationException s) {
-            LOGGER.error("Could not parse Rendering Control from string '{}'", xml);
+        } catch (IOException | SAXException | ParserConfigurationException e) {
+            LOGGER.error("Could not parse Rendering Control from string '{}': {}", xml, e.getMessage());
         }
         return handler.getChanges();
     }
