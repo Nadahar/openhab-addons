@@ -148,6 +148,21 @@ public class Sun extends RiseSet implements Planet {
     }
 
     /**
+     * Returns the midnight range, start and end is always equal.
+     */
+    @Nullable
+    public Range getMidnight() {
+        return ranges.get(SunPhaseName.MIDNIGHT);
+    }
+
+    /**
+     * Sets the noon range.
+     */
+    public void setMidnight(Range midnight) {
+        ranges.put(SunPhaseName.MIDNIGHT, midnight);
+    }
+
+    /**
      * Returns the daylight range.
      */
     @Nullable

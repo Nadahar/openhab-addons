@@ -191,8 +191,22 @@ public class SunCalc {
             return sun;
         }
 
-        sun.setNoon(new Range(DateTimeUtils.toCalendar(jtransit, zone, locale),
-                DateTimeUtils.toCalendar(jtransit + JD_ONE_MINUTE_FRACTION, zone, locale)));
+        Calendar noon = DateTimeUtils.toCalendar(jtransit, zone, locale);
+        sun.setNoon(new Range(noon, DateTimeUtils.toCalendar(jtransit + JD_ONE_MINUTE_FRACTION, zone, locale)));
+        Calendar midnight, midnightEnd;
+        if (noon != null) {
+            midnight = (Calendar) noon.clone();
+            midnight.add(Calendar.HOUR, -12);
+            if (!DateTimeUtils.isSameDay(noon, midnight)) {
+                midnight.add(Calendar.HOUR, 24);
+            }
+            midnightEnd = (Calendar) midnight.clone();
+            midnightEnd.add(Calendar.MINUTE, 1);
+        } else {
+            midnight = null;
+            midnightEnd = null;
+        }
+        sun.setMidnight(new Range(midnight, midnightEnd));
         sun.setRise(new Range(DateTimeUtils.toCalendar(jrise, zone, locale),
                 DateTimeUtils.toCalendar(jriseend, zone, locale)));
         sun.setSet(new Range(DateTimeUtils.toCalendar(jsetstart, zone, locale),

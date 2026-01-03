@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
 public interface Job extends SchedulerRunnable, Runnable {
 
     /** The {@link Logger} Instance */
-    final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+    final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
     /**
      * Schedules the provided {@link Job} instance
@@ -53,11 +53,18 @@ public interface Job extends SchedulerRunnable, Runnable {
     static void schedule(AstroThingHandler astroHandler, Job job, Calendar eventAt, TimeZone zone, Locale locale) {
         try {
             Calendar today = Calendar.getInstance(zone, locale);
-            if (isSameDay(eventAt, today) && isTimeGreaterEquals(eventAt, today)) {
+            boolean sameDay;
+            if ((sameDay = isSameDay(eventAt, today)) && isTimeGreaterEquals(eventAt, today)) {
                 astroHandler.schedule(job, eventAt);
+            } else if (LOGGER.isDebugEnabled()) {
+                if (sameDay) {
+                    LOGGER.debug("Not scheduling {} since it's in the past ({})", job, eventAt.getTime());
+                } else {
+                    LOGGER.debug("Not scheduling {} since it's at another date ({})", job, eventAt.getTime());
+                }
             }
         } catch (Exception ex) {
-            logger.error("{}", ex.getMessage(), ex);
+            LOGGER.error("{}", ex.getMessage(), ex);
         }
     }
 
@@ -91,7 +98,7 @@ public interface Job extends SchedulerRunnable, Runnable {
         if (!configAlreadyApplied) {
             final Channel channel = astroHandler.getThing().getChannel(channelId);
             if (channel == null) {
-                logger.warn("Cannot find channel '{}' for thing '{}'.", channelId, astroHandler.getThing().getUID());
+                LOGGER.warn("Cannot find channel '{}' for thing '{}'.", channelId, astroHandler.getThing().getUID());
                 return;
             }
             AstroChannelConfig config = channel.getConfiguration().as(AstroChannelConfig.class);
@@ -114,7 +121,7 @@ public interface Job extends SchedulerRunnable, Runnable {
             Locale locale) {
         final Channel channel = astroHandler.getThing().getChannel(channelId);
         if (channel == null) {
-            logger.warn("Cannot find channel '{}' for thing '{}'.", channelId, astroHandler.getThing().getUID());
+            LOGGER.warn("Cannot find channel '{}' for thing '{}'.", channelId, astroHandler.getThing().getUID());
             return;
         }
         AstroChannelConfig config = channel.getConfiguration().as(AstroChannelConfig.class);
@@ -124,7 +131,7 @@ public interface Job extends SchedulerRunnable, Runnable {
         Calendar end = adjustedRange.getEnd();
 
         if (start == null || end == null) {
-            logger.debug("event was not scheduled as either start or end was null");
+            LOGGER.debug("event was not scheduled as either start or end was null");
             return;
         }
 
@@ -155,7 +162,9 @@ public interface Job extends SchedulerRunnable, Runnable {
             return range;
         }
 
-        return new Range(truncateToSecond(applyConfig(start, config)), truncateToSecond(applyConfig(end, config)));
+        // return new Range(truncateToSecond(applyConfig(start, config)), truncateToSecond(applyConfig(end, config)));
+        // // TODO: (Nad) Here
+        return new Range(applyConfig(start, config), applyConfig(end, config));
     }
 
     /**
