@@ -145,6 +145,21 @@ public class Sun extends RiseSet implements Planet {
     }
 
     /**
+     * Returns the solar midnight range, start is the actual moment, end is one minute later.
+     */
+    @Nullable
+    public Range getSolarMidnight() {
+        return ranges.get(SunPhaseName.MIDNIGHT);
+    }
+
+    /**
+     * Sets the noon range.
+     */
+    public void setSolarMidnight(Range midnight) {
+        ranges.put(SunPhaseName.MIDNIGHT, midnight);
+    }
+
+    /**
      * Returns the daylight range.
      */
     @Nullable

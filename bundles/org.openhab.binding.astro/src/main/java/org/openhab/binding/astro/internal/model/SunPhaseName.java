@@ -33,5 +33,6 @@ public enum SunPhaseName {
     NOON,
     NIGHT,
     MORNING_NIGHT,
+    MIDNIGHT,
     EVENING_NIGHT
 }
