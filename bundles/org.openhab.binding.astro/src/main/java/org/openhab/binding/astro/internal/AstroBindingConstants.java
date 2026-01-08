@@ -68,4 +68,10 @@ public final class AstroBindingConstants {
     public static final String EVENT_CHANNEL_ID_DAYLIGHT = "daylight#event";
 
     public static final String CHANNEL_ID_SUN_PHASE_NAME = "phase#name";
+
+    // job identifiers
+
+    public static final String POSITIONAL_JOB = "positional";
+    public static final String PUBLISH_ZODIAC_JOB = "publishZodiac";
+    public static final String PUBLISH_SEASON_JOB = "publishSeason";
 }
