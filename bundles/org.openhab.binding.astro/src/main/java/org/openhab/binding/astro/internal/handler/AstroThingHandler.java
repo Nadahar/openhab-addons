@@ -27,12 +27,11 @@ import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
-import java.util.GregorianCalendar;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -43,6 +42,7 @@ import javax.measure.quantity.Angle;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.astro.internal.AstroBindingConstants;
 import org.openhab.binding.astro.internal.action.AstroActions;
 import org.openhab.binding.astro.internal.config.AstroChannelConfig;
 import org.openhab.binding.astro.internal.config.AstroThingConfig;
@@ -95,7 +95,7 @@ public abstract class AstroThingHandler extends BaseThingHandler {
     private final Lock monitor = new ReentrantLock();
 
     // All access must be guarded by "monitor"
-    private final Set<ScheduledFuture<?>> scheduledFutures = new HashSet<>();
+    private final Map<String, ScheduledFuture<?>> scheduledFutures = new HashMap<>();
 
     // All access must be guarded by "monitor"
     private boolean linkedPositionalChannels;
@@ -103,7 +103,7 @@ public abstract class AstroThingHandler extends BaseThingHandler {
     protected AstroThingConfig thingConfig = new AstroThingConfig();
 
     // All access must be guarded by "monitor"
-    private @Nullable ScheduledCompletableFuture<?> dailyJob;
+    private @Nullable ScheduledCompletableFuture<?> dailyJob; //TODO: (Nad) Remove?
 
     /** The source of the current time */
     protected final InstantSource instantSource;
@@ -234,7 +234,7 @@ public abstract class AstroThingHandler extends BaseThingHandler {
                 // Daily Job
                 Job runnable = getDailyJob(zone, locale);
                 dailyJob = cronScheduler.schedule(runnable, DAILY_MIDNIGHT);
-                logger.debug("Scheduled {} at midnight", dailyJob);
+                logger.debug("Scheduled daily '{}' job at midnight", getThing().getUID());
                 // Execute daily startup job immediately
                 runnable.run();
 
@@ -245,7 +245,7 @@ public abstract class AstroThingHandler extends BaseThingHandler {
                     Job positionalJob = new PositionalJob(this);
                     ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(positionalJob, 0, thingConfig.interval,
                             TimeUnit.SECONDS);
-                    scheduledFutures.add(future);
+                    scheduledFutures.put(AstroBindingConstants.POSITIONAL_JOB, future);
                     logger.info("Scheduled {} every {} seconds", positionalJob, thingConfig.interval);
                 }
             }
@@ -266,7 +266,7 @@ public abstract class AstroThingHandler extends BaseThingHandler {
                 job.cancel(true);
             }
             dailyJob = null;
-            for (ScheduledFuture<?> future : scheduledFutures) {
+            for (ScheduledFuture<?> future : scheduledFutures.values()) {
                 if (!future.isDone()) {
                     future.cancel(true);
                 }
@@ -338,12 +338,23 @@ public abstract class AstroThingHandler extends BaseThingHandler {
     /**
      * Adds the provided {@link Job} to the queue (cannot be {@code null})
      */
-    private void schedule(Job job, long sleepTimeMs) {
+    private void schedule(String identifier, Job job, long sleepTimeMs) {
         monitor.lock();
         try {
             tidyScheduledFutures();
-            ScheduledFuture<?> future = scheduler.schedule(job, sleepTimeMs, TimeUnit.MILLISECONDS);
-            scheduledFutures.add(future);
+            ScheduledFuture<?> future = scheduledFutures.get(identifier);
+            if (future != null && !future.isDone()) {
+                // The event is already scheduled
+                long delay;
+                if ((delay = future.getDelay(TimeUnit.MILLISECONDS)) < 10L && Math.abs(delay - sleepTimeMs) <= 20L) {
+                    // if the previously scheduled event is about to run very soon and their scheduled are similar,
+                    // we don't know if we can cancel it in time, so we let it run and don't schedule the new one.
+                    return;
+                }
+                future.cancel(true);
+            }
+            future = scheduler.schedule(job, sleepTimeMs, TimeUnit.MILLISECONDS);
+            scheduledFutures.put(identifier, future);
         } finally {
             monitor.unlock();
         }
@@ -352,11 +363,11 @@ public abstract class AstroThingHandler extends BaseThingHandler {
     /**
      * Adds the provided {@link Job} to the queue (cannot be {@code null})
      */
-    public void schedule(Job job, Calendar eventAt) {
+    public void schedule(String identifier, Job job, Calendar eventAt) {
         // We don't use instantSource here, because we always want to schedule relative to the system clock
         long sleepTime = eventAt.getTimeInMillis() - System.currentTimeMillis();
         if (sleepTime >= 0L) {
-            schedule(job, sleepTime);
+            schedule(identifier, job, sleepTime);
             if (logger.isDebugEnabled()) {
                 final String formattedDate = this.loggerFormatter.format(eventAt.getTime());
                 logger.debug("Scheduled {} in {}ms (at {})", job, sleepTime, formattedDate);
@@ -367,11 +378,11 @@ public abstract class AstroThingHandler extends BaseThingHandler {
         }
     }
 
-    public void schedule(Job job, Instant eventAt) {
+    public void schedule(String identifier, Job job, Instant eventAt) {
         // We don't use instantSource here, because we always want to schedule relative to the system clock
         long sleepTime = eventAt.toEpochMilli() + 1L - System.currentTimeMillis();
         if (sleepTime >= 0L) {
-            schedule(job, sleepTime);
+            schedule(identifier, job, sleepTime);
             if (logger.isDebugEnabled()) {
                 logger.debug("Scheduled {} in {}ms (at {})", job, sleepTime, eventAt.atZone(ZoneId.systemDefault()));
             }
@@ -384,8 +395,9 @@ public abstract class AstroThingHandler extends BaseThingHandler {
     private void tidyScheduledFutures() {
         monitor.lock();
         try {
-            for (Iterator<ScheduledFuture<?>> iterator = scheduledFutures.iterator(); iterator.hasNext();) {
-                ScheduledFuture<?> future = iterator.next();
+            ScheduledFuture<?> future;
+            for (Iterator<ScheduledFuture<?>> iterator = scheduledFutures.values().iterator(); iterator.hasNext();) {
+                future = iterator.next();
                 if (future.isDone()) {
                     logger.trace("Tidying up done future {}", future);
                     iterator.remove();
