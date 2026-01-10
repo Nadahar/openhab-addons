@@ -24,9 +24,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
+import java.nio.channels.AsynchronousCloseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -108,7 +110,8 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
     private final Logger logger = LoggerFactory.getLogger(Shelly2ApiRpc.class);
     private final ShellyThingTable thingTable;
 
-    protected boolean initialized = false;
+    private final AtomicBoolean initialized = new AtomicBoolean(false);
+
     private boolean discovery = false;
     private Shelly2RpcSocket rpcSocket = new Shelly2RpcSocket();
     private @Nullable Shelly2AuthChallenge authInfo;
@@ -146,19 +149,20 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
     }
 
     @Override
-    public void initialize() throws ShellyApiException {
-        if (initialized) {
+    public void initialize(String thingName, ShellyThingConfiguration config) throws ShellyApiException {
+        if (isInitialized()) {
             logger.debug("{}: Disconnect Rpc Socket on initialize", thingName);
             disconnect();
         }
+        setConfig(thingName, config);
         rpcSocket = new Shelly2RpcSocket(thingName, thingTable, config.deviceIp);
         rpcSocket.addMessageHandler(this);
-        initialized = true;
+        initialized.set(true);
     }
 
     @Override
     public boolean isInitialized() {
-        return initialized;
+        return initialized.get();
     }
 
     @Override
@@ -787,10 +791,15 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
 
     @Override
     public void onError(Throwable cause) {
-        logger.debug("{}: WebSocket error", thingName, cause);
+        String message = "WebSocket error: " + getString(cause.getMessage());
+        if (cause instanceof AsynchronousCloseException || "Shutdown".equals(message)) {
+            // could happen on shutdown, ignore
+        } else {
+            logger.debug("{}: {}", thingName, message, cause);
+        }
         ShellyThingInterface thing = this.thing;
         if (thing != null && thing.getProfile().alwaysOn) {
-            thingOffline("WebSocket error");
+            thingOffline(message);
         }
     }
 
@@ -1277,7 +1286,7 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
     private void asyncApiRequest(String method) throws ShellyApiException {
         Shelly2RpcBaseMessage request = buildRequest(method, null);
         reconnect();
-        rpcSocket.sendMessage(gson.toJson(request)); // submit, result wull be async
+        rpcSocket.sendMessage(gson.toJson(request)); // submit, result will be async
     }
 
     public <T> T apiRequest(String method, @Nullable Object params, Class<T> classOfT) throws ShellyApiException {
@@ -1350,17 +1359,31 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
     }
 
     private void reconnect() throws ShellyApiException {
-        if (!rpcSocket.isConnected()) {
+        Shelly2RpcSocket rpcSocket = this.rpcSocket;
+        if (rpcSocket != null && !rpcSocket.isConnected()) {
             logger.debug("{}: Connect Rpc Socket (discovery = {})", thingName, discovery);
             rpcSocket.connect();
         }
     }
 
     private void disconnect() {
+        Shelly2RpcSocket rpcSocket = this.rpcSocket;
+        if (rpcSocket == null) {
+            return;
+        }
         if (rpcSocket.isConnected()) {
             logger.trace("{}: Disconnect Rpc Socket", thingName);
         }
-        rpcSocket.disconnect();
+
+        try {
+            rpcSocket.disconnect();
+        } catch (Exception e) {
+            if (e.getCause() instanceof AsynchronousCloseException) {
+                // Channel was closed intentionally, ignore
+            } else {
+                throw e;
+            }
+        }
     }
 
     public Shelly2RpctInterface getRpcHandler() {
@@ -1369,12 +1392,18 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
 
     @Override
     public void close() {
-        if (initialized || rpcSocket.isConnected()) {
-            logger.debug("{}: Closing Rpc API (socket is {}, discovery={})", thingName,
-                    rpcSocket.isConnected() ? "connected" : "disconnected", discovery);
+        try {
+            Shelly2RpcSocket rpcSocket = this.rpcSocket;
+            if (rpcSocket != null) {
+                if (logger.isDebugEnabled() && rpcSocket.isConnected()) {
+                    logger.debug("{}: Closing Rpc API (socket is {}, discovery={})", thingName,
+                            rpcSocket.isConnected() ? "connected" : "disconnected", discovery);
+                }
+                disconnect();
+            }
+        } finally {
+            initialized.set(false);
         }
-        disconnect();
-        initialized = false;
     }
 
     private void incProtErrors() {
