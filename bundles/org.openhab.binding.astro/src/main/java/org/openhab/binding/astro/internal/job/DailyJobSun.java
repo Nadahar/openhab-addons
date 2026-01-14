@@ -77,7 +77,7 @@ public final class DailyJobSun extends AbstractJob {
 
             //TODO: (Nad) Handle night like moon rise/set
 
-            scheduleRange(handler, sun.getRise(), EVENT_CHANNEL_ID_RISE, zone, locale, instantSource); //TODO: (Nad) 25 hours
+            scheduleRange(handler, sun.getRise(), EVENT_CHANNEL_ID_RISE, zone, locale, instantSource);
             scheduleRange(handler, sun.getSet(), EVENT_CHANNEL_ID_SET, zone, locale, instantSource);
             Range range = sun.getNoon();
             if (range != null) {

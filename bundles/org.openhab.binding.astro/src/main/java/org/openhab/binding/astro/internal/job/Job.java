@@ -65,7 +65,11 @@ public interface Job extends SchedulerRunnable, Runnable {
             if (isWithinTimeWindow(eventAt, today, DAILY_SCHEDULE_TIME_WINDOW_LENGTH, DAILY_SCHEDULE_TIME_WINDOW_UNIT)) {
                 astroHandler.schedule(identifier, job, eventAt);
             } else if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("Not scheduling {} since it's in outside the schedulable time window ({})", job, eventAt.getTime());
+                if (eventAt.before(today)) {
+                    LOGGER.debug("Not scheduling {} because it's in the past ({})", job, eventAt.getTime());
+                } else {
+                    LOGGER.debug("Not scheduling {} because it's in outside the schedulable time window ({})", job, eventAt.getTime());
+                }
             }
         } catch (Exception ex) {
             LOGGER.error("{}", ex.getMessage(), ex);
@@ -86,7 +90,11 @@ public interface Job extends SchedulerRunnable, Runnable {
         if (isWithinTimeWindow(eventAt, now, DAILY_SCHEDULE_TIME_WINDOW_LENGTH, DAILY_SCHEDULE_TIME_WINDOW_UNIT)) {
             astroHandler.schedule(identifier, job, eventAt);
         } else if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Not scheduling {} since it's in outside the schedulable time window ({})", job, eventAt.atZone(zone));
+            if (eventAt.isBefore(now)) {
+                LOGGER.debug("Not scheduling {} because it's in the past ({})", job, eventAt.atZone(zone));
+            } else {
+                LOGGER.debug("Not scheduling {} because it's in outside the schedulable time window ({})", job, eventAt.atZone(zone));
+            }
         }
     }
 
