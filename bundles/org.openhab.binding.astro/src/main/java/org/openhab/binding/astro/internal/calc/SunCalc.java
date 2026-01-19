@@ -170,7 +170,8 @@ public class SunCalc {
         }
 
         Calendar noon = DateTimeUtils.toCalendar(jtransit, zone, locale);
-        sun.setNoon(new Range(noon, DateTimeUtils.toCalendar(jtransit + DateTimeUtils.JD_ONE_MINUTE_FRACTION, zone, locale)));
+        sun.setNoon(new Range(noon,
+                DateTimeUtils.toCalendar(jtransit + DateTimeUtils.JD_ONE_MINUTE_FRACTION, zone, locale)));
         Calendar midnight, midnightEnd;
         if (noon != null) {
             midnight = (Calendar) noon.clone();
