@@ -153,7 +153,7 @@ public class Sun extends RiseSet implements Planet {
     }
 
     /**
-     * Sets the noon range.
+     * Sets the solar midnight range.
      */
     public void setSolarMidnight(Range midnight) {
         ranges.put(SunPhaseName.MIDNIGHT, midnight);

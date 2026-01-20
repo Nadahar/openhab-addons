@@ -489,7 +489,7 @@ public abstract class AstroThingHandler extends BaseThingHandler {
      * Calculates and returns the planet at the specified moment in time.
      *
      * @param date the moment in time.
-     * @param the locale to use.
+     * @param locale the locale to use.
      * @return The resulting {@link Planet}.
      */
     public abstract Planet getPlanetAt(ZonedDateTime date, Locale locale);
