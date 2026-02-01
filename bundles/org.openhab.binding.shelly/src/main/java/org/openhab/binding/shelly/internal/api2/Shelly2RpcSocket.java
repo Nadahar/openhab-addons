@@ -238,7 +238,7 @@ public class Shelly2RpcSocket implements WriteCallback {
         }
 
         if (queue != null && logger.isTraceEnabled()) {
-            logger.trace("{}: Sending {} queued RPC message {}", thingName, queue.size());
+            logger.trace("{}: Sending {} queued RPC message(s)", thingName, queue.size());
         }
         final RemoteEndpoint remote = session.getRemote();
         try {
