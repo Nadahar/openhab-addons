@@ -121,14 +121,7 @@ public class Shelly2RpcSocket implements WriteCallback {
     public void connect() throws ShellyApiException {
         boolean connecting = false;
         try {
-            // Close any previous session/client (also clears queue
-            disconnect(); // for safety
-
-            String deviceIp = this.deviceIp;
-            if (deviceIp.isBlank()) {
-                throw new IllegalArgumentException(thingName + ": Device IP not set");
-            }
-
+            // Prepare connect
             URI uri = new URI("ws://" + deviceIp + SHELLYRPC_ENDPOINT);
             ClientUpgradeRequest request = new ClientUpgradeRequest();
             request.setHeader(HttpHeaders.HOST, deviceIp);
@@ -136,23 +129,29 @@ public class Shelly2RpcSocket implements WriteCallback {
             request.setHeader("Pragma", "no-cache");
             request.setHeader("Cache-Control", "no-cache");
 
+            WebSocketClient newClient = new WebSocketClient();
+            newClient.setConnectTimeout(SHELLY_API_TIMEOUT_MS);
+            newClient.setStopTimeout(1000);
+
             if (logger.isTraceEnabled()) {
                 logger.trace("{}: Connect WebSocket, URI={}", thingName, uri);
             }
 
-            WebSocketClient newClient = new WebSocketClient();
-            newClient.setConnectTimeout(SHELLY_API_TIMEOUT_MS);
-            newClient.setStopTimeout(1000);
+            String deviceIp = this.deviceIp;
+            if (deviceIp.isBlank()) {
+                throw new IllegalArgumentException(thingName + ": Device IP not set");
+            }
+
+            // Start connecting the WebSocket session (result will be passed to onConnect()/onError())
             synchronized (this) {
+                disconnect(); // for safety
                 connecting = true;
                 this.client = newClient;
 
-                // Connect (async); errors after this are delivered via onError/onClose
-                connecting = true;
+                // Connect async
                 newClient.start();
                 newClient.connect(this, uri, request);
             }
-
         } catch (URISyntaxException e) {
             connecting = false;
             throw new ShellyApiException("Invalid URI: " + e.getMessage(), e);
@@ -235,9 +234,10 @@ public class Shelly2RpcSocket implements WriteCallback {
 
         if (queue != null) {
             if (logger.isDebugEnabled()) {
-                logger.debug("{}: Sending {} queued RPC request(s)", thingName, queue.size());
+                logger.debug("{}: Sending {} queued RPC request{}", thingName, queue.size(),
+                        queue.size() > 1 ? "s" : "");
             }
-            final RemoteEndpoint remote = session.getRemote();
+            RemoteEndpoint remote = session.getRemote();
             for (String msg : queue) {
                 remote.sendString(msg, this);
             }
@@ -252,9 +252,8 @@ public class Shelly2RpcSocket implements WriteCallback {
      * - If send fails: this is an error; do NOT requeue.
      *
      * @param str API request message
-     * @throws ShellyApiException
      */
-    public void sendMessage(String str) throws ShellyApiException {
+    public void sendMessage(String str) {
         final Session session;
         List<String> queue = null;
         synchronized (this) {
@@ -263,7 +262,7 @@ public class Shelly2RpcSocket implements WriteCallback {
             if (session == null || !session.isOpen()) {
                 this.sendQueue.add(str);
                 if (logger.isDebugEnabled()) {
-                    logger.debug("{}: Queued API request (no open session): {}", thingName, str);
+                    logger.debug("{}: Queued RPC request (no open session): {}", thingName, str);
                 }
                 return;
             }
@@ -274,35 +273,30 @@ public class Shelly2RpcSocket implements WriteCallback {
             }
         }
 
-        if (queue != null && logger.isTraceEnabled()) {
-            logger.trace("{}: Sending {} queued RPC message(s)", thingName, queue.size());
-        }
         final RemoteEndpoint remote = session.getRemote();
-        try {
-            if (queue != null) {
-                for (String queued : queue) {
-                    remote.sendString(queued, this);
-                }
-            }
-
+        if (queue != null) {
             if (logger.isTraceEnabled()) {
-                logger.trace("{}: Sending RPC message {}", thingName, str);
+                logger.trace("{}: Sending {} queued RPC message{}", thingName, queue.size(),
+                        queue.size() > 1 ? "s" : "");
             }
-            remote.sendString(str, this);
-
-        } catch (IllegalStateException | WebSocketException e) {
-            logger.debug("{}: Failed to send RPC message: {}", thingName, e.toString());
-            throw new ShellyApiException("Failed to send RPC message: " + e.getMessage(), e);
+            for (String queued : queue) {
+                remote.sendString(queued, this);
+            }
         }
+
+        if (logger.isDebugEnabled()) {
+            logger.debug("{}: Sending RPC message {}", thingName, str);
+        }
+        remote.sendString(str, this);
     }
 
     /**
-     * Close WebSocket session and stop the WebSocketClient.
+     * Close WebSocket session and stop the WebSocketClient
      * Clears sendQueue (NOT preserved across reconnects).
      */
     public void disconnect() {
-        final Session session;
-        final WebSocketClient client;
+        Session session;
+        WebSocketClient client;
         synchronized (this) {
             session = this.session;
             client = this.client;
@@ -323,7 +317,7 @@ public class Shelly2RpcSocket implements WriteCallback {
             }
         }
 
-        // make sure client is stopped / thread terminates / socket resource is free up
+        // make sure client is stopped / thread terminates / socket resource gets freed up
         try {
             if (client != null && client.isRunning()) {
                 if (logger.isTraceEnabled()) {
@@ -426,8 +420,8 @@ public class Shelly2RpcSocket implements WriteCallback {
     /**
      * WebSocket closed, notify thing handler (closed initiated by the binding)
      *
-     * @param statusCode
-     * @param reason
+     * @param statusCode StatusCode
+     * @param reason Textual reason
      */
     @OnWebSocketClose
     public void onClose(int statusCode, String reason) {
@@ -435,10 +429,13 @@ public class Shelly2RpcSocket implements WriteCallback {
             logger.trace("{}: Rpc connection closed abnormal: {} - {}", thingName, statusCode, getString(reason));
         }
 
-        final Shelly2RpctInterface handler;
+        Shelly2RpctInterface handler;
         synchronized (this) {
             handler = this.websocketHandler;
-            cleanup(); // set session+client=null, clear send queue
+
+            // set session+client=null, clear send queue
+            // this also prevents another socket closed issued by thingOffline()->api-close()->close()
+            cleanup();
         }
 
         if (inbound) {
@@ -453,17 +450,21 @@ public class Shelly2RpcSocket implements WriteCallback {
     /**
      * Callback for unexpected close (initiated by remote device)
      *
-     * @param cause
+     * @param cause WebSocket error/Exception
      */
     @OnWebSocketError
     public void onError(Throwable cause) {
         final Shelly2RpctInterface handler;
         synchronized (this) {
             handler = this.websocketHandler;
-            cleanup(); // set session+client=null, clear send queue
+
+            // set session+client=null, clear send queue
+            // this also prevents another socket closed issued by thingOffline()->api-close()->close()
+            cleanup();
         }
 
         if (inbound) {
+            // Ignore disconnect: Device establishes the socket, sends NotifyxFullStatus and disconnects
             return;
         }
         if (handler != null) {
@@ -481,8 +482,9 @@ public class Shelly2RpcSocket implements WriteCallback {
 
         int qLength = sendQueue.size();
         sendQueue.clear();
-        if (qLength > 0) {
-            logger.debug("{}: {} queued RPC message(s) dropped, because socket is closing", thingName, qLength);
+        if (logger.isDebugEnabled() && qLength > 0) {
+            logger.debug("{}: {} queued RPC message{} were dropped, because socket is closing", thingName, qLength,
+                    qLength > 1 ? "s" : "");
         }
     }
 
@@ -503,7 +505,6 @@ public class Shelly2RpcSocket implements WriteCallback {
     /**
      * Asynchronous write completed with success
      */
-
     @Override
     public void writeSuccess() {
         // Nothing to do

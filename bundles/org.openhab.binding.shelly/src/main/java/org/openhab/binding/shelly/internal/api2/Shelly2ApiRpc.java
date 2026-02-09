@@ -113,8 +113,10 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
     protected volatile boolean initialized = false;
     private volatile boolean discovery = false;
 
-    // Access needs to be synchronized with "this"
+    // All access must be guarded by "this"
     private @Nullable Shelly2RpcSocket rpcSocket;
+
+    // All access must be guarded by "this"
     private @Nullable Shelly2AuthChallenge authInfo;
 
     // Plus devices support up to 3 scripts, Pro devices up to 10
@@ -1408,23 +1410,20 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
         initialized = true;
     }
 
-    private void reconnect() throws ShellyApiException {
+    private synchronized void reconnect() throws ShellyApiException {
         if (discovery) {
             // There is no WebSocket connection in discovery mode
             return;
         }
 
-        Shelly2RpcSocket rpcSocket;
-        synchronized (this) {
-            rpcSocket = this.rpcSocket;
-        }
+        Shelly2RpcSocket rpcSocket = this.rpcSocket;
         if (rpcSocket != null) {
             if (!rpcSocket.isConnected()) {
                 logger.debug("{}: Connect Rpc Socket (discovery = {})", thingName, discovery);
                 rpcSocket.connect();
             }
         } else {
-            throw new ShellyApiException("rpcSocket is not connected");
+            throw new ShellyApiException("RPC socket is not connected");
         }
     }
 
@@ -1452,19 +1451,19 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
         }
     }
 
-    public Shelly2RpctInterface getRpcHandler() {
-        return this;
-    }
-
     @Override
     public void close() {
         try {
             disconnect();
-        } catch (Exception e) {
-            logger.warn("{}: Closing socket failed, poteltial resource leak", thingName, e);
+        } catch (ShellyApiException e) {
+            logger.debug("{}: {}", thingName, e.getMessage());
         } finally {
             initialized = false;
         }
+    }
+
+    public Shelly2RpctInterface getRpcHandler() {
+        return this;
     }
 
     private void incProtErrors() {
