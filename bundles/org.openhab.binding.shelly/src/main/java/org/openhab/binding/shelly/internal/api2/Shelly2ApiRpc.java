@@ -673,6 +673,29 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
         }
     }
 
+    private boolean checkThingStatusAndRestartWatchdog(String src, String dst) {
+        ShellyThingInterface thing;
+        synchronized (this) {
+            thing = this.thing;
+        }
+        if (thing == null) {
+            logger.debug("{}: No matching thing, ignore message (dst={}, discovery={}", src, dst, discovery);
+            return false;
+        }
+        if (thing.isStopping()) {
+            logger.debug("{}: Thing is shutting down, ignore WebSocket message", thingName);
+            return false;
+        }
+        if (!thing.isThingOnline() && thing.getThingStatusDetail() != ThingStatusDetail.CONFIGURATION_PENDING) {
+            logger.debug("{}: Thing is not in online state/connectable, ignore NotifyStatus", thingName);
+            return false;
+        }
+
+        thing.incProtMessages();
+        thing.restartWatchdog();
+        return true;
+    }
+
     @Override
     public void onNotifyEvent(String eventJSON) throws ShellyApiException {
         logger.debug("{}: NotifyEvent  received: {}", thingName, eventJSON);
@@ -704,7 +727,6 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
                         ShellyInputState input = relayStatus.inputs.get(e.id);
                         input.event = getString(MAP_INPUT_EVENT_TYPE.get(e.event));
                         input.eventCount = getInteger(input.eventCount) + 1;
-
                         relayStatus.inputs.set(e.id, input);
                         profile.status.inputs.set(e.id, input);
 
@@ -755,29 +777,6 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
                     logger.debug("{}: Event {} was not handled", thingName, e.event);
             }
         }
-    }
-
-    private boolean checkThingStatusAndRestartWatchdog(String src, String dst) {
-        ShellyThingInterface thing;
-        synchronized (this) {
-            thing = this.thing;
-        }
-        if (thing == null) {
-            logger.debug("{}: No matching thing, ignore message (dst={}, discovery={}", src, dst, discovery);
-            return false;
-        }
-        if (thing.isStopping()) {
-            logger.debug("{}: Thing is shutting down, ignore WebSocket message", thingName);
-            return false;
-        }
-        if (!thing.isThingOnline() && thing.getThingStatusDetail() != ThingStatusDetail.CONFIGURATION_PENDING) {
-            logger.debug("{}: Thing is not in online state/connectable, ignore NotifyStatus", thingName);
-            return false;
-        }
-
-        thing.incProtMessages();
-        thing.restartWatchdog();
-        return true;
     }
 
     @Override
@@ -1318,7 +1317,7 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
         if (rpcSocket != null && rpcSocket.isConnected()) {
             rpcSocket.sendMessage(gson.toJson(request)); // submit, result will be async
         } else {
-            throw new ShellyApiException("Rpc socket isn't connected - cannot send async request");
+            throw new ShellyApiException("RPC socketis not connected, cannot send async request");
         }
     }
 
@@ -1451,8 +1450,16 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
         }
     }
 
+    public Shelly2RpctInterface getRpcHandler() {
+        return this;
+    }
+
     @Override
     public void close() {
+        if (initialized) {
+            logger.debug("{}: Closing RPC socket  discovery={})", thingName, discovery);
+        }
+
         try {
             disconnect();
         } catch (ShellyApiException e) {
@@ -1460,10 +1467,6 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
         } finally {
             initialized = false;
         }
-    }
-
-    public Shelly2RpctInterface getRpcHandler() {
-        return this;
     }
 
     private void incProtErrors() {

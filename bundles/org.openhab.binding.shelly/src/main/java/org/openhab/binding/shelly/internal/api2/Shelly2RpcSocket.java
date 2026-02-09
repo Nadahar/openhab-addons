@@ -349,7 +349,7 @@ public class Shelly2RpcSocket implements WriteCallback {
         try {
             Shelly2RpcBaseMessage message = fromJson(gson, receivedMessage, Shelly2RpcBaseMessage.class);
             if (logger.isTraceEnabled()) {
-                logger.trace("{}: Inbound Rpc message: {}", thingName, receivedMessage);
+                logger.trace("{}: Inbound RPC message: {}", thingName, receivedMessage);
             }
             if (handler != null) {
                 if (thingName.isEmpty()) {
@@ -403,7 +403,7 @@ public class Shelly2RpcSocket implements WriteCallback {
                 }
             } else {
                 if (logger.isDebugEnabled()) {
-                    logger.debug("{}: No Rpc listener registered for device {}, skip message: {}", thingName,
+                    logger.debug("{}: No RPC listener registered for device {}, skip message: {}", thingName,
                             getString(message.src), receivedMessage);
                 }
             }
@@ -426,7 +426,7 @@ public class Shelly2RpcSocket implements WriteCallback {
     @OnWebSocketClose
     public void onClose(int statusCode, String reason) {
         if (statusCode != StatusCode.NORMAL && logger.isTraceEnabled()) {
-            logger.trace("{}: Rpc connection closed abnormal: {} - {}", thingName, statusCode, getString(reason));
+            logger.trace("{}: RPC connection closed abnormal: {} - {}", thingName, statusCode, getString(reason));
         }
 
         Shelly2RpctInterface handler;
@@ -454,9 +454,9 @@ public class Shelly2RpcSocket implements WriteCallback {
      */
     @OnWebSocketError
     public void onError(Throwable cause) {
-        final Shelly2RpctInterface handler;
+        Shelly2RpctInterface websocketHandler;
         synchronized (this) {
-            handler = this.websocketHandler;
+            websocketHandler = this.websocketHandler;
 
             // set session+client=null, clear send queue
             // this also prevents another socket closed issued by thingOffline()->api-close()->close()
@@ -467,8 +467,8 @@ public class Shelly2RpcSocket implements WriteCallback {
             // Ignore disconnect: Device establishes the socket, sends NotifyxFullStatus and disconnects
             return;
         }
-        if (handler != null) {
-            handler.onError(cause);
+        if (websocketHandler != null) {
+            websocketHandler.onError(cause);
         }
     }
 
