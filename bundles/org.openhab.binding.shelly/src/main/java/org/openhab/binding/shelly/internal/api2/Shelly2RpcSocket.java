@@ -21,8 +21,12 @@ import static org.openhab.binding.shelly.internal.util.ShellyUtils.*;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import javax.ws.rs.core.HttpHeaders;
 
@@ -58,6 +62,8 @@ import com.google.gson.Gson;
 @NonNullByDefault
 @WebSocket(maxIdleTime = Integer.MAX_VALUE)
 public class Shelly2RpcSocket implements WriteCallback {
+
+    private static final long PING_TASK_FREQUENCY_MIN = 2;
     private final Logger logger = LoggerFactory.getLogger(Shelly2RpcSocket.class);
     private final Gson gson = new Gson();
 
@@ -76,20 +82,26 @@ public class Shelly2RpcSocket implements WriteCallback {
     private @Nullable Shelly2RpctInterface websocketHandler;
 
     private final WebSocketClient client;
+    private final ScheduledExecutorService scheduler;
+
+    // All access must be guarded by "this"
+    private @Nullable ScheduledFuture<?> pingTask;
 
     /**
      * Regular constructor for Thing and Discover handler
      *
-     * @param thingName Thing/Service name
-     * @param thingTable
-     * @param deviceIp IP address for the device
+     * @param thingName Thing/Service name.
+     * @param thingTable the {@link ShellyThingTable}.
+     * @param deviceIp IP address for the device.
+     * @param scheduler the {@link ScheduledExecutorService} to use for scheduling.
      */
     public Shelly2RpcSocket(String thingName, ShellyThingTable thingTable, String deviceIp,
-            WebSocketClient webSocketClient) {
+            WebSocketClient webSocketClient, ScheduledExecutorService scheduler) {
         this.thingName = thingName;
         this.deviceIp = deviceIp;
         this.thingTable = thingTable;
         this.client = webSocketClient;
+        this.scheduler = scheduler;
         inbound = false;
     }
 
@@ -99,10 +111,12 @@ public class Shelly2RpcSocket implements WriteCallback {
      * @param thingTable
      * @param inbound
      */
-    public Shelly2RpcSocket(ShellyThingTable thingTable, boolean inbound, WebSocketClient webSocketClient) {
+    public Shelly2RpcSocket(ShellyThingTable thingTable, boolean inbound, WebSocketClient webSocketClient,
+            ScheduledExecutorService scheduler) {
         this.thingTable = thingTable;
         this.inbound = inbound;
         this.client = webSocketClient;
+        this.scheduler = scheduler;
     }
 
     /**
@@ -212,6 +226,7 @@ public class Shelly2RpcSocket implements WriteCallback {
             logger.debug("{}: WebSocket connected {}<-{}, Idle Timeout={}", thingName, session.getLocalAddress(),
                     session.getRemoteAddress(), session.getIdleTimeout());
         }
+        startPing(session);
         handler.onConnect(deviceIp, true);
 
         if (queue != null) {
@@ -389,6 +404,7 @@ public class Shelly2RpcSocket implements WriteCallback {
      */
     @OnWebSocketClose
     public void onClose(int statusCode, String reason) {
+        stopPing();
         if (statusCode != StatusCode.NORMAL && logger.isTraceEnabled()) {
             logger.trace("{}: RPC connection closed abnormally: {} - {}", thingName, statusCode, getString(reason));
         }
@@ -418,6 +434,7 @@ public class Shelly2RpcSocket implements WriteCallback {
      */
     @OnWebSocketError
     public void onError(Throwable cause) {
+        stopPing();
         Shelly2RpctInterface websocketHandler;
         synchronized (this) {
             websocketHandler = this.websocketHandler;
@@ -451,6 +468,29 @@ public class Shelly2RpcSocket implements WriteCallback {
         if (logger.isDebugEnabled() && qLength > 0) {
             logger.debug("{}: {} queued RPC message{} dropped, because the socket was closed", thingName, qLength,
                     qLength != 1 ? "s were" : " was");
+        }
+    }
+
+    private void startPing(Session session) {
+        ScheduledFuture<?> oldTask;
+        synchronized (this) {
+            oldTask = this.pingTask;
+            this.pingTask = scheduler.scheduleWithFixedDelay(new PingTask(session), PING_TASK_FREQUENCY_MIN,
+                    PING_TASK_FREQUENCY_MIN, TimeUnit.MINUTES);
+        }
+        if (oldTask != null) {
+            oldTask.cancel(false);
+        }
+    }
+
+    private void stopPing() {
+        ScheduledFuture<?> oldTask;
+        synchronized (this) {
+            oldTask = this.pingTask;
+            this.pingTask = null;
+        }
+        if (oldTask != null) {
+            oldTask.cancel(false);
         }
     }
 
@@ -488,5 +528,31 @@ public class Shelly2RpcSocket implements WriteCallback {
         client.setConnectTimeout(SHELLY_API_TIMEOUT_MS);
         client.setStopTimeout(1000);
         return client;
+    }
+
+    private class PingTask implements Runnable {
+
+        private final Session session;
+
+        public PingTask(Session session) {
+            this.session = session;
+        }
+
+        @Override
+        public void run() {
+            if (session.isOpen()) {
+                RemoteEndpoint remote = session.getRemote();
+                if (logger.isTraceEnabled()) {
+                    logger.trace("Sending WebSocket ping to {}", remote.getInetSocketAddress().getHostString());
+                }
+                try {
+                    remote.sendPing(ByteBuffer.allocate(0));
+                } catch (IOException e) {
+                    logger.debug("Faied to send WebSocket ping to {}: {}",
+                            remote.getInetSocketAddress().getHostString(), e.getMessage());
+                    logger.trace("", e);
+                }
+            }
+        }
     }
 }

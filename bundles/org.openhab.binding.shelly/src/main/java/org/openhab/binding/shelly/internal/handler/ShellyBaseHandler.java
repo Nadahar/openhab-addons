@@ -159,9 +159,9 @@ public abstract class ShellyBaseHandler extends BaseThingHandler
         blu = ShellyDeviceProfile.isBluSeries(thingTypeUID);
         gen2 = ShellyDeviceProfile.isGeneration2(thingTypeUID);
         if (blu) {
-            this.api = new ShellyBluApi(thingName, thingTable, this, webSocketClient);
+            this.api = new ShellyBluApi(thingName, thingTable, this, webSocketClient, scheduler);
         } else if (gen2) {
-            this.api = new Shelly2ApiRpc(thingName, thingTable, this, webSocketClient);
+            this.api = new Shelly2ApiRpc(thingName, thingTable, this, webSocketClient, scheduler);
         } else {
             this.api = new Shelly1HttpApi(thingName, this);
         }

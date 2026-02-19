@@ -28,11 +28,11 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.http.HttpStatus;
 import org.eclipse.jetty.io.EofException;
 import org.eclipse.jetty.websocket.api.StatusCode;
@@ -88,7 +88,6 @@ import org.openhab.binding.shelly.internal.api2.Shelly2ApiJsonDTO.ShellyScriptLi
 import org.openhab.binding.shelly.internal.api2.Shelly2ApiJsonDTO.ShellyScriptListResponse.ShellyScriptListEntry;
 import org.openhab.binding.shelly.internal.api2.Shelly2ApiJsonDTO.ShellyScriptPutCodeParams;
 import org.openhab.binding.shelly.internal.api2.Shelly2ApiJsonDTO.ShellyScriptResponse;
-import org.openhab.binding.shelly.internal.config.ShellyThingConfiguration;
 import org.openhab.binding.shelly.internal.handler.ShellyThingInterface;
 import org.openhab.binding.shelly.internal.handler.ShellyThingTable;
 import org.openhab.binding.shelly.internal.util.ShellyVersionDTO;
@@ -113,6 +112,7 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
     private @Nullable Shelly2RpcSocket rpcSocket;
     private @Nullable Shelly2AuthChallenge authInfo;
     private final WebSocketClient client;
+    private final ScheduledExecutorService scheduler;
 
     // Plus devices support up to 3 scripts, Pro devices up to 10
     // We need to find a free script id when uploading our script
@@ -124,27 +124,14 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
      *
      * @param thingName Symbolic thing name
      * @param thing Thing Handler (ThingHandlerInterface)
+     * @param scheduler the {@link ScheduledExecutorService} to use for scheduling.
      */
     public Shelly2ApiRpc(String thingName, ShellyThingTable thingTable, ShellyThingInterface thing,
-            WebSocketClient webSocketClient) {
+            WebSocketClient webSocketClient, ScheduledExecutorService scheduler) {
         super(thingName, thing);
         this.thingTable = thingTable;
         this.client = webSocketClient;
-    }
-
-    /**
-     * Simple initialization - called by discovery handler
-     *
-     * @param thingName Symbolic thing name
-     * @param config Thing Configuration
-     * @param httpClient HTTP Client to be passed to ShellyHttpClient
-     */
-    public Shelly2ApiRpc(String thingName, ShellyThingTable thingTable, ShellyThingConfiguration config,
-            HttpClient httpClient, WebSocketClient webSocketClient) {
-        super(thingName, config, httpClient);
-        this.thingName = thingName;
-        this.thingTable = thingTable;
-        this.client = webSocketClient;
+        this.scheduler = scheduler;
     }
 
     @Override
@@ -157,7 +144,7 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
         if (rpcSocket != null) {
             rpcSocket.disconnect();
         }
-        rpcSocket = new Shelly2RpcSocket(thingName, thingTable, config.deviceIp, client);
+        rpcSocket = new Shelly2RpcSocket(thingName, thingTable, config.deviceIp, client, scheduler);
         rpcSocket.addMessageHandler(this);
         this.rpcSocket = rpcSocket;
         initialized = true;
