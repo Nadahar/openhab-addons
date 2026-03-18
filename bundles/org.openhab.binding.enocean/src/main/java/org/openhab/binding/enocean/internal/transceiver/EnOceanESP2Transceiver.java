@@ -73,6 +73,11 @@ public class EnOceanESP2Transceiver extends EnOceanTransceiver {
             if (bytesRead == -1) {
                 throw new IOException("could not read from inputstream");
             }
+            if (bytesRead > 0) {
+                byte[] tmpBytes = new byte[bytesRead + 1];
+                System.arraycopy(readingBuffer, 0, tmpBytes, 0, bytesRead + 1);
+                logger.error("Read from inputStream: {}", HexUtils.bytesToHex(tmpBytes));
+            }
 
             Future<?> localReadingTask = readingTask;
             if (localReadingTask == null || localReadingTask.isCancelled()) {
