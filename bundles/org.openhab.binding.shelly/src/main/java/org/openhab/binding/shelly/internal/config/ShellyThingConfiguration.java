@@ -23,79 +23,79 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 public class ShellyThingConfiguration {
     // All access must be guarded by "this"
     /** IP address of the device */
-    private String deviceIp = "";
+    private String deviceIp = ""; // relay, roller, dimmer, light, rgbw2, battery, basic, relay-gen2, roller-gen2, rgbw-gen2, battery-gen2, dimmer-gen2, blugw
 
     // All access must be guarded by "this"
     /** IP address or MAC address for BLU devices */
-    private String deviceAddress = "";
+    private String deviceAddress = ""; // blubattery
 
     // All access must be guarded by "this"
     /** userid for HTTP basic auth */
-    private String userId = "";
+    private String userId = ""; // relay, roller, dimmer, light, rgbw2, battery, basic
 
     // All access must be guarded by "this"
     /** password for HTTP basic auth */
-    private String password = "";
+    private String password = ""; // relay, roller, dimmer, light, rgbw2, battery, basic, relay-gen2, roller-gen2, rgbw-gen2, battery-gen2, dimmer-gen2
 
     // All access must be guarded by "this"
     /** schedule interval for the update job */
-    private int updateInterval = 60;
+    private int updateInterval = 60; // relay, roller, dimmer, light, rgbw2, battery, basic, relay-gen2, roller-gen2, rgbw-gen2, battery-gen2, dimmer-gen2
 
     // All access must be guarded by "this"
     /** threshold for battery value */
-    private int lowBattery = 15;
+    private int lowBattery = 15; // battery, battery-gen2, blubattery
 
     // All access must be guarded by "this"
     /** {@code true}: turn on device if brightness > 0 is set */
-    private boolean brightnessAutoOn = true;
+    private boolean brightnessAutoOn = true; // dimmer, light, rgbw2, dimmer-gen2
 
     // All access must be guarded by "this"
     /** Roller position favorite when control channel receives ON, 0=none */
-    private int favoriteUP = 0;
+    private int favoriteUP = 0; // roller, roller-gen2
 
     // All access must be guarded by "this"
     /** Roller position favorite when control channel receives ON, 0=none */
-    private int favoriteDOWN = 0;
+    private int favoriteDOWN = 0; // roller, roller-gen2
 
     // All access must be guarded by "this"
     /** {@code true}: register for Relay btn_xxx events */
-    private boolean eventsButton = false;
+    private boolean eventsButton = false; // relay, dimmer
 
     // All access must be guarded by "this"
     /** {@code true}: register for device out_xxx events */
-    private boolean eventsSwitch = true;
+    private boolean eventsSwitch = true; // relay, dimmer, light
 
     // All access must be guarded by "this"
     /** {@code true}: register for short/long push events */
-    private boolean eventsPush = true;
+    private boolean eventsPush = true; // relay, dimmer
 
     // All access must be guarded by "this"
     /** {@code true}: register for short/long push events */
-    private boolean eventsRoller = true;
+    private boolean eventsRoller = true; // roller
 
     // All access must be guarded by "this"
     /** {@code true}: register for sensor events */
-    private boolean eventsSensorReport = true;
+    private boolean eventsSensorReport = true; // battery, basic
 
     // All access must be guarded by "this"
     /** {@code true}: use CoIoT events (based on COAP) */
-    private boolean eventsCoIoT = false;
+    private boolean eventsCoIoT = false; // relay, roller, dimmer, light, rgbw2, battery, basic
 
     // All access must be guarded by "this"
     /** local IP addresses used to create callback URL */
-    private String localIp = "";
+    private String localIp = ""; //
 
     // All access must be guarded by "this"
-    private String localPort = "8080";
+    private String localPort = "8080"; //
 
     // All access must be guarded by "this"
-    private String realm = "";
+    private String realm = ""; //
 
     // All access must be guarded by "this"
-    private Boolean enableBluGateway = false;
+    private Boolean enableBluGateway = false; // relay-gen2, roller-gen2, rgbw-gen2, dimmer-gen2, blugw
 
     // All access must be guarded by "this"
-    private Boolean enableRangeExtender = true;
+    private Boolean enableRangeExtender = true; // relay-gen2, rgbw-gen2
 
     public synchronized String getDeviceIp() {
         return deviceIp;
