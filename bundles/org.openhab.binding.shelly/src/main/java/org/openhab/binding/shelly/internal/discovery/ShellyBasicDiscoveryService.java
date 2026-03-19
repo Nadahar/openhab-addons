@@ -139,7 +139,7 @@ public class ShellyBasicDiscoveryService extends AbstractDiscoveryService {
             model = getString(devInfo.type);
             auth = getBool(devInfo.auth);
             if (name.isEmpty() || name.startsWith(SERVICE_NAME_SHELLYPLUSRANGE_PREFIX)) {
-                config.realm = name = getString(devInfo.hostname);
+                config.setRealm(name = getString(devInfo.hostname));
             }
 
             thingType = name.contains("-") ? substringBeforeLast(name, "-") : name;
@@ -194,11 +194,11 @@ public class ShellyBasicDiscoveryService extends AbstractDiscoveryService {
     public static ShellyThingConfiguration fillConfig(ShellyBindingConfiguration bindingConfig, String address,
             String realm) {
         ShellyThingConfiguration config = new ShellyThingConfiguration();
-        config.realm = realm; // mDNS service name or hostname provided by /shelly
-        config.deviceIp = address;
-        config.userId = getString(bindingConfig.defaultUserId);
-        config.password = getString(bindingConfig.defaultPassword);
-        config.localIp = getString(bindingConfig.localIP);
+        config.setRealm(realm); // mDNS service name or hostname provided by /shelly
+        config.setDeviceIp(address);
+        config.setUserId(getString(bindingConfig.defaultUserId));
+        config.setPassword(getString(bindingConfig.defaultPassword));
+        config.setLocalIp(getString(bindingConfig.localIP));
         return config;
     }
 

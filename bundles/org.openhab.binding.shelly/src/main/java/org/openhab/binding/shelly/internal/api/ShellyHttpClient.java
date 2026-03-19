@@ -72,8 +72,7 @@ public class ShellyHttpClient {
     protected AtomicInteger timeoutsRecovered = new AtomicInteger(0);
     protected volatile boolean basicAuth = false;
 
-    // All access must be guarded by "this"
-    protected ShellyThingConfiguration config;
+    protected volatile ShellyThingConfiguration config;
 
     private final ShellyDeviceProfile profile;
 
@@ -128,11 +127,7 @@ public class ShellyHttpClient {
                 }
                 return apiResult.response; // successful
             } catch (ShellyApiException e) {
-                String password;
-                synchronized (this) {
-                    password = config.password;
-                }
-                if (e.isHttpAccessUnauthorized() && !profile.isGen2 && !basicAuth && !password.isBlank()) {
+                if (e.isHttpAccessUnauthorized() && !profile.isGen2 && !basicAuth && !config.getPassword().isBlank()) {
                     logger.debug("{}: Access is unauthorized, auto-activate basic auth", thingName);
                     basicAuth = true;
                     apiResult = innerRequest(HttpMethod.GET, uri, null, "");
@@ -168,34 +163,27 @@ public class ShellyHttpClient {
 
     private ShellyApiResult innerRequest(HttpMethod method, String uri, @Nullable Shelly2AuthChallenge auth,
             String data) throws ShellyApiException {
-        String deviceIp;
-        String userId;
-        String password;
-        synchronized (this) {
-            deviceIp = config.deviceIp;
-            userId = config.userId;
-            password = config.password;
-        }
 
         Request request = null;
-        String url = "http://" + deviceIp + uri;
+        String url = "http://" + config.getDeviceIp() + uri;
         ShellyApiResultBuilder builder = ShellyApiResult.builder(method.toString(), url);
 
         try {
             request = httpClient.newRequest(url).method(method.toString()).timeout(SHELLY_API_TIMEOUT_MS,
                     TimeUnit.MILLISECONDS);
 
-            if (!uri.equals(SHELLY_URL_DEVINFO) && !password.isBlank()) { // not for /shelly or no password
-                                                                          // configured
+            if (!uri.equals(SHELLY_URL_DEVINFO) && !config.getPassword().isBlank()) { // not for /shelly or no password
+                                                                                      // configured
                 // Add Auth info
                 // Gen 1: Basic Auth
                 // Gen 2: Digest Auth
                 String authHeader = "";
                 if (auth != null) { // only if we received an Auth challenge
-                    authHeader = formatAuthResponse(uri, buildAuthResponse(uri, auth, SHELLY2_AUTHDEF_USER, password));
+                    authHeader = formatAuthResponse(uri,
+                            buildAuthResponse(uri, auth, SHELLY2_AUTHDEF_USER, config.getPassword()));
                 } else {
                     if (basicAuth) {
-                        String bearer = userId + ":" + password;
+                        String bearer = config.getUserId() + ":" + config.getPassword();
                         authHeader = HTTP_AUTH_TYPE_BASIC + " "
                                 + Base64.getEncoder().encodeToString(bearer.getBytes(StandardCharsets.UTF_8));
                     }

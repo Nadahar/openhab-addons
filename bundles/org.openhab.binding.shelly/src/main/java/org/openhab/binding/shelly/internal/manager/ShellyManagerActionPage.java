@@ -115,7 +115,7 @@ public class ShellyManagerActionPage extends ShellyManagerPage {
                     break;
                 case ACTION_PROTECT:
                     // Get device settings
-                    if (config.userId.isEmpty() || config.password.isEmpty()) {
+                    if (config.getUserId().isEmpty() || config.getPassword().isEmpty()) {
                         message = getMessageP("action.protect.id-missing", MCWARNING);
                         break;
                     }
@@ -124,11 +124,12 @@ public class ShellyManagerActionPage extends ShellyManagerPage {
                         ShellySettingsLogin status = api.getLoginSettings();
                         message = getMessage("action.protect.status", getBool(status.enabled) ? "enabled" : "disabled",
                                 status.username)
-                                + getMessageP("action.protect.new", MCINFO, config.userId, config.password);
+                                + getMessageP("action.protect.new", MCINFO, config.getUserId(), config.getPassword());
                         actionUrl = buildActionUrl(uid, action);
                     } else {
-                        api.setLoginCredentials(config.userId, config.password);
-                        message = getMessageP("action.protect.confirm", MCINFO, config.userId, config.password);
+                        api.setLoginCredentials(config.getUserId(), config.getPassword());
+                        message = getMessageP("action.protect.confirm", MCINFO, config.getUserId(),
+                                config.getPassword());
                         refreshTimer = 3;
                     }
                     break;
