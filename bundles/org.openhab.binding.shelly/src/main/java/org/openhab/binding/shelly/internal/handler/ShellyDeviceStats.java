@@ -29,7 +29,6 @@ import org.openhab.binding.shelly.internal.util.ShellyUtils;
  */
 @NonNullByDefault
 public class ShellyDeviceStats {
-
     public record ShellyDeviceAlarm(String message, long timeStamp) {
     }
 

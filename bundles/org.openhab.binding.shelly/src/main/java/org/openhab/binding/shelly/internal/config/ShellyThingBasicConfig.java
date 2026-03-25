@@ -98,7 +98,7 @@ public class ShellyThingBasicConfig {
         return enableBluGateway;
     }
 
-    public synchronized boolean getEnableEnableRangeExtender() {
+    public synchronized boolean getEnableRangeExtender() {
         return enableRangeExtender;
     }
 
