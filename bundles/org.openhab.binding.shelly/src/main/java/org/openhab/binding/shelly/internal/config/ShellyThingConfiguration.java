@@ -12,17 +12,7 @@
  */
 package org.openhab.binding.shelly.internal.config;
 
-import static org.openhab.binding.shelly.internal.ShellyBindingConstants.*;
-import static org.openhab.binding.shelly.internal.util.ShellyUtils.*;
-
-import java.lang.reflect.Field;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.Locale;
-
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * The {@link ShellyThingConfiguration} class contains fields mapping thing configuration parameters.
@@ -30,109 +20,123 @@ import org.slf4j.LoggerFactory;
  * @author Markus Michels - Initial contribution
  */
 @NonNullByDefault
-public class ShellyThingConfiguration extends ShellyThingBasicConfig {
-    private final Logger logger = LoggerFactory.getLogger(ShellyThingConfiguration.class);
+public class ShellyThingConfiguration {
 
-    // All access must be guarded by "this"
-    private String realm;
+    /** IP address of the device */
+    private String deviceIp = "";
 
-    private final String localIp; // local ip addresses used to create callback url
-    private final String localPort;
+    /** IP address or MAC address for BLU devices */
+    private String deviceAddress = "";
 
-    public ShellyThingConfiguration(String thingName, ShellyThingBasicConfig basicConfig,
-            ShellyBindingConfiguration bindingConfig, String realm, boolean gen2) {
-        for (Field field : ShellyThingBasicConfig.class.getDeclaredFields()) {
-            try {
-                field.setAccessible(true);
-                field.set(this, field.get(basicConfig));
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException("Failed to copy field: " + field.getName(), e);
-            }
-        }
+    /** userid for HTTP basic auth */
+    private String userId = "";
 
-        if (deviceAddress.isEmpty()) {
-            if (!deviceIp.isEmpty()) {
-                try {
-                    String ip = deviceIp.contains(":") ? substringBefore(deviceIp, ":") : deviceIp;
-                    String port = deviceIp.contains(":") ? substringAfter(deviceIp, ":") : "";
-                    InetAddress addr = InetAddress.getByName(ip);
-                    String saddr = addr.getHostAddress();
-                    if (!ip.equals(saddr)) {
-                        logger.debug("{}: hostname {} resolved to IP address {}", thingName, deviceIp, saddr);
-                        deviceIp = saddr + (port.isEmpty() ? "" : ":" + port);
-                    }
-                } catch (UnknownHostException e) {
-                    logger.debug("{}: Unable to resolve hostname {}", thingName, deviceIp);
-                }
-            }
+    /** password for HTTP basic auth */
+    private String password = "";
 
-            deviceAddress = deviceIp;
-        } else {
-            // remove : from MAC address and convert to lower case
-            deviceAddress = deviceAddress.toLowerCase(Locale.ROOT).replace(":", "");
-        }
+    /** schedule interval for the update job */
+    private int updateInterval = 60;
 
-        if (!gen2 && userId.isEmpty() && !bindingConfig.defaultUserId.isEmpty()) {
-            // Gen2 has hard coded user "admin"
-            userId = bindingConfig.defaultUserId;
-            logger.debug("{}: Using default user id '{}' from binding configuration", thingName, userId);
-        }
-        if (password.isEmpty() && !bindingConfig.defaultPassword.isEmpty()) {
-            password = bindingConfig.defaultPassword;
-            logger.debug("{}: Using default password from binding configuration", thingName);
-        }
+    /** threshold for battery value */
+    private int lowBattery = 15;
 
-        if (updateInterval == 0) {
-            updateInterval = UPDATE_STATUS_INTERVAL_SECONDS * UPDATE_SKIP_COUNT;
-        }
-        if (updateInterval < UPDATE_MIN_DELAY) {
-            updateInterval = UPDATE_MIN_DELAY;
-        }
+    /** {@code true}: turn on device if brightness > 0 is set */
+    private boolean brightnessAutoOn = true;
 
-        if (gen2) {
-            eventsCoIoT = false;
-        }
-        if (eventsCoIoT) {
-            logger.debug("{}: Auto-CoIoT is enabled, disabling action urls", thingName);
-            disableGen1Events();
-        }
+    /** Roller position favorite when control channel receives ON, 0=none */
+    private int favoriteUP = 0;
 
-        this.localIp = bindingConfig.localIP;
-        this.localPort = String.valueOf(bindingConfig.httpPort != -1 ? bindingConfig.httpPort : DEFAULT_LOCAL_PORT);
-        this.realm = getString(realm);
+    /** Roller position favorite when control channel receives ON, 0=none */
+    private int favoriteDOWN = 0;
+
+    // Gen1
+    /** {@code true}: register for Relay btn_xxx events */
+    private boolean eventsButton = false;
+
+    /** {@code true}: register for device out_xxx events */
+    private boolean eventsSwitch = true;
+
+    /** {@code true}: register for short/long push events */
+    private boolean eventsPush = true;
+
+    /** {@code true}: register for short/long push events */
+    private boolean eventsRoller = true;
+
+    /** {@code true}: register for sensor events */
+    private boolean eventsSensorReport = true;
+
+    /** {@code true}: use CoIoT events (based on COAP) */
+    private boolean eventsCoIoT = false;
+
+    // Gen2
+    private Boolean enableBluGateway = false;
+    private Boolean enableRangeExtender = true;
+
+    public String getDeviceIp() {
+        return deviceIp;
     }
 
-    public ShellyThingConfiguration(ShellyBindingConfiguration bindingConfig, String realm, String deviceIp) {
-        this.realm = realm; // mDNS service name or hostname provided by /shelly
-        this.deviceIp = deviceIp;
-        this.userId = getString(bindingConfig.defaultUserId);
-        this.password = getString(bindingConfig.defaultPassword);
-        this.localIp = getString(bindingConfig.localIP);
-        this.localPort = String.valueOf(bindingConfig.httpPort != -1 ? bindingConfig.httpPort : DEFAULT_LOCAL_PORT);
+    public String getDeviceAddress() {
+        return deviceAddress;
     }
 
-    public String getLocalIp() {
-        return localIp;
+    public int getUpdateInterval() {
+        return updateInterval;
     }
 
-    public String getLocalPort() {
-        return localPort;
+    public int getLowBattery() {
+        return lowBattery;
     }
 
-    public synchronized String getRealm() {
-        return realm;
+    public boolean getBrightnessAutoOn() {
+        return brightnessAutoOn;
     }
 
-    public synchronized void setRealm(String realm) {
-        this.realm = realm;
+    public int getFavoriteUP() {
+        return favoriteUP;
     }
 
-    @Override
-    public String toString() {
-        return "Device address=" + deviceAddress + ", HTTP user/password=" + userId + "/"
-                + (password.isEmpty() ? "<none>" : "***") + ", update interval=" + updateInterval + "\n"
-                + "Events: Button: " + eventsButton + ", Switch (on/off): " + eventsSwitch + ", Push: " + eventsPush
-                + ", Roller: " + eventsRoller + "Sensor: " + eventsSensorReport + ", CoIoT: " + eventsCoIoT + "\n"
-                + "Blu Gateway=" + enableBluGateway + ", Range Extender: " + enableRangeExtender;
+    public int getFavoriteDOWN() {
+        return favoriteDOWN;
+    }
+
+    public boolean getEnableBluGateway() {
+        return enableBluGateway;
+    }
+
+    public boolean getEnableRangeExtender() {
+        return enableRangeExtender;
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public boolean getEventsButton() {
+        return eventsButton;
+    }
+
+    public boolean getEventsSwitch() {
+        return eventsSwitch;
+    }
+
+    public boolean getEventsPush() {
+        return eventsPush;
+    }
+
+    public boolean getEventsRoller() {
+        return eventsRoller;
+    }
+
+    public boolean getEventsSensorReport() {
+        return eventsSensorReport;
+    }
+
+    public boolean getEventsCoIoT() {
+        return eventsCoIoT;
     }
 }

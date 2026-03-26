@@ -33,7 +33,7 @@ import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyOtaCheck
 import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellySettingsLogin;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO;
 import org.openhab.binding.shelly.internal.api1.Shelly1HttpApi;
-import org.openhab.binding.shelly.internal.config.ShellyThingConfiguration;
+import org.openhab.binding.shelly.internal.config.ShellyRuntimeConfiguration;
 import org.openhab.binding.shelly.internal.handler.ShellyManagerInterface;
 import org.openhab.binding.shelly.internal.provider.ShellyTranslationProvider;
 import org.openhab.core.thing.ThingStatusDetail;
@@ -83,10 +83,10 @@ public class ShellyManagerActionPage extends ShellyManagerPage {
             String serviceName = getValue(properties, PROPERTY_SERVICE_NAME);
             String message = "";
 
-            ShellyThingConfiguration config = th.getThingConfig();
+            ShellyRuntimeConfiguration runtimeConfig = th.getRuntimeConfig();
             ShellyDeviceProfile profile = th.getProfile();
             ShellyApiInterface api = th.getApi();
-            new Shelly1HttpApi(uid, config, httpClient);
+            new Shelly1HttpApi(uid, th.getThingConfig(), runtimeConfig, httpClient);
 
             int refreshTimer = 0;
             switch (action) {
@@ -115,8 +115,8 @@ public class ShellyManagerActionPage extends ShellyManagerPage {
                     break;
                 case ACTION_PROTECT:
                     // Get device settings
-                    String userId = config.getUserId();
-                    String password = config.getPassword();
+                    String userId = runtimeConfig.getUserId();
+                    String password = runtimeConfig.getPassword();
                     if (userId.isEmpty() || password.isEmpty()) {
                         message = getMessageP("action.protect.id-missing", MCWARNING);
                         break;

@@ -37,7 +37,6 @@ import org.openhab.binding.shelly.internal.provider.ShellyTranslationProvider;
 import org.openhab.binding.shelly.internal.util.ShellyVersionDTO;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
-import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
@@ -260,7 +259,6 @@ public class ShellyManagerOverviewPage extends ShellyManagerPage {
     }
 
     private Map<String, String> getStatusWarnings(ShellyManagerInterface handler) {
-        Thing thing = handler.getThing();
         ThingStatus status = handler.getThing().getStatus();
         ShellyDeviceStats stats = handler.getStats();
         ShellyDeviceProfile profile = handler.getProfile();

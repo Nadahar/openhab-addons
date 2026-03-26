@@ -46,7 +46,7 @@ import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotDevDescr
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotGenericSensorList;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotSensor;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotSensorTypeAdapter;
-import org.openhab.binding.shelly.internal.config.ShellyThingConfiguration;
+import org.openhab.binding.shelly.internal.config.ShellyRuntimeConfiguration;
 import org.openhab.binding.shelly.internal.handler.ShellyColorUtils;
 import org.openhab.binding.shelly.internal.handler.ShellyThingInterface;
 import org.openhab.core.library.unit.Units;
@@ -69,7 +69,7 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
 
     private final Logger logger = LoggerFactory.getLogger(Shelly1CoapHandler.class);
     private final ShellyThingInterface thingHandler;
-    private final ShellyThingConfiguration config;
+    private final ShellyRuntimeConfiguration runtimeConfig;
     private final GsonBuilder gsonBuilder = new GsonBuilder();
     private final Gson gson;
     private String thingName;
@@ -92,11 +92,11 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
     private ShellyDeviceProfile profile;
     private ShellyApiInterface api;
 
-    public Shelly1CoapHandler(ShellyThingInterface thingHandler, String thingName, ShellyThingConfiguration config,
-            Shelly1CoapServer coapServer) {
+    public Shelly1CoapHandler(ShellyThingInterface thingHandler, String thingName,
+            ShellyRuntimeConfiguration runtimeConfig, Shelly1CoapServer coapServer) {
         this.thingHandler = thingHandler;
         this.thingName = thingName;
-        this.config = config;
+        this.runtimeConfig = runtimeConfig;
         this.profile = thingHandler.getProfile();
         this.api = thingHandler.getApi();
         this.coapServer = coapServer;
@@ -111,7 +111,7 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
      * Initialize CoAP access, send discovery packet and start Status server
      *
      * @param thingName Thing name derived from Thing Type/hostname
-     * @param config ShellyThingConfiguration
+     * @param runtimeConfig ShellyThingConfiguration
      * @throws ShellyApiException
      */
     public synchronized void start() throws ShellyApiException {
@@ -127,8 +127,8 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
                 String ps = substringAfter(profile.coiotEndpoint, ":");
                 coiotPort = Integer.parseInt(ps);
             }
-            coapServer.start(config.getLocalIp(), coiotPort, this);
-            statusClient = new CoapClient(completeUrl(config.getDeviceIp(), coiotPort, COLOIT_URI_DEVSTATUS))
+            coapServer.start(runtimeConfig.getLocalIp(), coiotPort, this);
+            statusClient = new CoapClient(completeUrl(runtimeConfig.getDeviceIp(), coiotPort, COLOIT_URI_DEVSTATUS))
                     .setTimeout((long) SHELLY_API_TIMEOUT_MS).useNONs().setEndpoint(coapServer.getEndpoint());
             @Nullable
             Endpoint endpoint = null;
@@ -147,7 +147,7 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
             throw new ShellyApiException("Network error", e);
         } catch (UnknownHostException e) {
             logger.info("{}: CoAP Exception (Unknown Host)", thingName, e);
-            throw new ShellyApiException("Unknown Host: " + config.getDeviceIp(), e);
+            throw new ShellyApiException("Unknown Host: " + runtimeConfig.getDeviceIp(), e);
         }
     }
 
@@ -177,7 +177,7 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
 
         List<Option> options = response.getOptions().asSortedList();
         String ip = response.getSourceContext().getPeerAddress().toString();
-        boolean match = ip.contains("/" + config.getDeviceIp() + ":");
+        boolean match = ip.contains("/" + runtimeConfig.getDeviceIp() + ":");
         if (!match) {
             // We can't identify device by IP, so we need to check the CoAP header's Global Device ID
             for (Option opt : options) {
@@ -310,7 +310,7 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
 
         if (!updatesRequested) {
             // Observe Status Updates
-            reqStatus = sendRequest(reqStatus, config.getDeviceIp(), COLOIT_URI_DEVSTATUS, Type.NON);
+            reqStatus = sendRequest(reqStatus, runtimeConfig.getDeviceIp(), COLOIT_URI_DEVSTATUS, Type.NON);
             updatesRequested = true;
         }
     }
@@ -537,7 +537,7 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
                 }
             }
         }
-        reqDescription = sendRequest(reqDescription, config.getDeviceIp(), COLOIT_URI_DEVDESC, Type.CON);
+        reqDescription = sendRequest(reqDescription, runtimeConfig.getDeviceIp(), COLOIT_URI_DEVDESC, Type.CON);
     }
 
     /**
