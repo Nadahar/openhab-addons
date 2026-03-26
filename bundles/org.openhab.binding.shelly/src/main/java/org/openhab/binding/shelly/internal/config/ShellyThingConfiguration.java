@@ -93,7 +93,12 @@ public class ShellyThingConfiguration extends ShellyThingBasicConfig {
             eventsCoIoT = false;
         }
         if (eventsCoIoT) {
-
+            eventsCoIoT = true;
+            eventsSwitch = false;
+            eventsButton = false;
+            eventsPush = false;
+            eventsRoller = false;
+            eventsSensorReport = false;
         }
 
         this.localIp = bindingConfig.localIP;
@@ -110,20 +115,11 @@ public class ShellyThingConfiguration extends ShellyThingBasicConfig {
         this.localPort = String.valueOf(bindingConfig.httpPort != -1 ? bindingConfig.httpPort : DEFAULT_LOCAL_PORT);
     }
 
-    public synchronized void disableGen1Events() {
-        eventsCoIoT = true;
-        eventsSwitch = false;
-        eventsButton = false;
-        eventsPush = false;
-        eventsRoller = false;
-        eventsSensorReport = false;
-    }
-
-    public synchronized String getLocalIp() {
+    public String getLocalIp() {
         return localIp;
     }
 
-    public synchronized String getLocalPort() {
+    public String getLocalPort() {
         return localPort;
     }
 
