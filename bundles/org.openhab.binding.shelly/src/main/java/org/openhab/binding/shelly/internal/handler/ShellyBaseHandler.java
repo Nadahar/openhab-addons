@@ -1107,6 +1107,11 @@ public abstract class ShellyBaseHandler extends BaseThingHandler
                 logger.warn("{}: CoIoT peer in device settings does not point this to this host", thingName);
             }
         }
+        if (autoCoIoT) {
+            logger.debug("{}: Auto-CoIoT is enabled, disabling action urls", thingName);
+            config.disableGen1Events();
+            api.setConfig(thingName, config);
+        }
 
         logger.debug("{}: Starting CoIoT (autoCoIoT={}/{})", thingName, bindingConfig.autoCoIoT, autoCoIoT);
         if (coap != null) {

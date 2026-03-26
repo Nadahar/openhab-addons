@@ -84,7 +84,7 @@ public class ShellyThingBasicConfig {
         return enableBluGateway;
     }
 
-    public boolean getEnableEnableRangeExtender() {
+    public boolean getEnableRangeExtender() {
         return enableRangeExtender;
     }
 
@@ -109,10 +109,6 @@ public class ShellyThingBasicConfig {
         this.password = password;
     }
 
-    public synchronized boolean getEnableRangeExtender() {
-        return enableRangeExtender;
-    }
-
     public synchronized boolean getEventsButton() {
         return eventsButton;
     }
@@ -135,5 +131,14 @@ public class ShellyThingBasicConfig {
 
     public synchronized boolean getEventsCoIoT() {
         return eventsCoIoT;
+    }
+
+    public synchronized void disableGen1Events() {
+        eventsCoIoT = true;
+        eventsSwitch = false;
+        eventsButton = false;
+        eventsPush = false;
+        eventsRoller = false;
+        eventsSensorReport = false;
     }
 }

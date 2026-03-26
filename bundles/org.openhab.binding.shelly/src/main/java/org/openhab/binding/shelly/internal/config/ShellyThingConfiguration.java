@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
  */
 @NonNullByDefault
 public class ShellyThingConfiguration extends ShellyThingBasicConfig {
-    protected final Logger logger = LoggerFactory.getLogger(ShellyThingConfiguration.class);
+    private final Logger logger = LoggerFactory.getLogger(ShellyThingConfiguration.class);
 
     // All access must be guarded by "this"
     private String realm;
@@ -91,14 +91,6 @@ public class ShellyThingConfiguration extends ShellyThingBasicConfig {
 
         if (gen2) {
             eventsCoIoT = false;
-        }
-        if (eventsCoIoT) {
-            eventsCoIoT = true;
-            eventsSwitch = false;
-            eventsButton = false;
-            eventsPush = false;
-            eventsRoller = false;
-            eventsSensorReport = false;
         }
 
         this.localIp = bindingConfig.localIP;
