@@ -89,7 +89,7 @@ import org.openhab.binding.shelly.internal.api2.Shelly2ApiJsonDTO.ShellyScriptLi
 import org.openhab.binding.shelly.internal.api2.Shelly2ApiJsonDTO.ShellyScriptListResponse.ShellyScriptListEntry;
 import org.openhab.binding.shelly.internal.api2.Shelly2ApiJsonDTO.ShellyScriptPutCodeParams;
 import org.openhab.binding.shelly.internal.api2.Shelly2ApiJsonDTO.ShellyScriptResponse;
-import org.openhab.binding.shelly.internal.config.ShellyThingConfiguration;
+import org.openhab.binding.shelly.internal.config.ShellyRuntimeConfiguration;
 import org.openhab.binding.shelly.internal.handler.ShellyThingInterface;
 import org.openhab.binding.shelly.internal.handler.ShellyThingTable;
 import org.openhab.binding.shelly.internal.util.ShellyVersionDTO;
@@ -137,7 +137,7 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
     }
 
     @Override
-    public void initialize(String thingName, ShellyThingConfiguration config) throws ShellyApiException {
+    public void initialize(String thingName, ShellyRuntimeConfiguration config) throws ShellyApiException {
         setConfig(thingName, config);
         if (initialized) {
             logger.debug("{}: Disconnect Rpc Socket on initialize", thingName);
@@ -219,9 +219,9 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
         profile.hasRelays = profile.numRelays > 0 || profile.numRollers > 0;
 
         ShellySettingsDevice device = profile.device;
-        if (config.getRealm().isBlank()) {
-            config.setRealm(getString(profile.device.hostname));
-            logger.trace("{}: {} is used as realm", thingName, config.getRealm());
+        if (runtimeConfig.getRealm().isBlank()) {
+            runtimeConfig.setRealm(getString(profile.device.hostname));
+            logger.trace("{}: {} is used as realm", thingName, runtimeConfig.getRealm());
         }
         profile.settings.fw = getString(device.fw);
         profile.fwDate = substringBefore(substringBefore(device.fw, "/"), "-");
@@ -384,8 +384,8 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
 
     private void checkSetWsCallback() throws ShellyApiException {
         Shelly2ConfigParms wsConfig = apiRequest(SHELLYRPC_METHOD_WSGETCONFIG, null, Shelly2ConfigParms.class);
-        String url = "ws://" + config.getLocalIp() + ":" + config.getLocalPort() + "/shelly/wsevent";
-        if (!config.getLocalIp().isEmpty() && !getBool(wsConfig.enable)
+        String url = "ws://" + runtimeConfig.getLocalIp() + ":" + runtimeConfig.getLocalPort() + "/shelly/wsevent";
+        if (!runtimeConfig.getLocalIp().isEmpty() && !getBool(wsConfig.enable)
                 || !url.equalsIgnoreCase(getString(wsConfig.server))) {
             logger.debug("{}: A battery device was detected without correct callback, fix it", thingName);
             wsConfig.enable = true;
@@ -1057,7 +1057,7 @@ public class Shelly2ApiRpc extends Shelly2ApiClient implements ShellyApiInterfac
     public ShellySettingsLogin setLoginCredentials(String user, String password) throws ShellyApiException {
         Shelly2RpcRequestParams params = new Shelly2RpcRequestParams();
         params.user = "admin";
-        params.realm = config.getRealm();
+        params.realm = runtimeConfig.getRealm();
         params.ha1 = sha256(params.user + ":" + params.realm + ":" + password);
         apiRequest(SHELLYRPC_METHOD_AUTHSET, params, String.class);
 

@@ -33,6 +33,7 @@ import org.openhab.binding.shelly.internal.api1.Shelly1HttpApi;
 import org.openhab.binding.shelly.internal.api2.Shelly2ApiClient;
 import org.openhab.binding.shelly.internal.config.ShellyBindingConfiguration;
 import org.openhab.binding.shelly.internal.config.ShellyThingConfiguration;
+import org.openhab.binding.shelly.internal.config.ShellyRuntimeConfiguration;
 import org.openhab.binding.shelly.internal.handler.ShellyBaseHandler;
 import org.openhab.binding.shelly.internal.handler.ShellyThingTable;
 import org.openhab.binding.shelly.internal.provider.ShellyTranslationProvider;
@@ -127,20 +128,20 @@ public class ShellyBasicDiscoveryService extends AbstractDiscoveryService {
         Map<String, Object> properties = new TreeMap<>();
 
         try {
-            ShellyThingConfiguration config = fillConfig(bindingConfig, ipAddress, name);
+            ShellyRuntimeConfiguration runtimeConfig = fillConfig(bindingConfig, ipAddress, name);
             if (gen2) {
-                api = new Shelly2ApiClient(name, config, httpClient);
+                api = new Shelly2ApiClient(name, new ShellyThingConfiguration(), runtimeConfig, httpClient);
             } else {
-                api = new Shelly1HttpApi(name, config, httpClient);
+                api = new Shelly1HttpApi(name, new ShellyThingConfiguration(), runtimeConfig, httpClient);
             }
-            api.initialize(name, config);
+            api.initialize(name, runtimeConfig);
             devInfo = api.getDeviceInfo();
             mac = getString(devInfo.mac);
             model = getString(devInfo.type);
             auth = getBool(devInfo.auth);
             if (name.isEmpty() || name.startsWith(SERVICE_NAME_SHELLYPLUSRANGE_PREFIX)) {
                 name = getString(devInfo.hostname);
-                config.setRealm(name);
+                runtimeConfig.setRealm(name);
             }
 
             thingType = name.contains("-") ? substringBeforeLast(name, "-") : name;
@@ -192,9 +193,9 @@ public class ShellyBasicDiscoveryService extends AbstractDiscoveryService {
         return null;
     }
 
-    public static ShellyThingConfiguration fillConfig(ShellyBindingConfiguration bindingConfig, String address,
+    public static ShellyRuntimeConfiguration fillConfig(ShellyBindingConfiguration bindingConfig, String address,
             String realm) {
-        return new ShellyThingConfiguration(bindingConfig, address, realm);
+        return new ShellyRuntimeConfiguration(bindingConfig, address, realm);
     }
 
     private static void addProperty(Map<String, Object> properties, String key, @Nullable String value) {

@@ -575,16 +575,6 @@ public class ShellyManagerPage {
         return name;
     }
 
-    protected ShellyThingConfiguration getThingConfig(ShellyManagerInterface th, Map<String, String> properties) {
-        Thing thing = th.getThing();
-        ShellyThingConfiguration config = thing.getConfiguration().as(ShellyThingConfiguration.class);
-        if (config.getUserId().isEmpty()) {
-            config.setUserId(getString(properties.get("userId")));
-            config.setPassword(getString(properties.get("password")));
-        }
-        return config;
-    }
-
     protected void scheduleUpdate(ShellyManagerInterface th, String name, int delay) {
         TimerTask task = new TimerTask() {
             @Override

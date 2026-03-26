@@ -44,6 +44,7 @@ import org.openhab.binding.shelly.internal.api2.Shelly2ApiJsonDTO.Shelly2AuthCha
 import org.openhab.binding.shelly.internal.api2.Shelly2ApiJsonDTO.Shelly2AuthRsp;
 import org.openhab.binding.shelly.internal.api2.Shelly2ApiJsonDTO.Shelly2RpcBaseMessage;
 import org.openhab.binding.shelly.internal.config.ShellyThingConfiguration;
+import org.openhab.binding.shelly.internal.config.ShellyRuntimeConfiguration;
 import org.openhab.binding.shelly.internal.handler.ShellyThingInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,25 +76,30 @@ public class ShellyHttpClient {
     // All access must be guarded by "this"
     protected ShellyThingConfiguration config;
 
+    // All access must be guarded by "this"
+    protected ShellyRuntimeConfiguration runtimeConfig;
+
     private final ShellyDeviceProfile profile;
 
     public ShellyHttpClient(String thingName, ShellyThingInterface thing) {
         this.thingName = thingName;
         this.config = thing.getThingConfig();
+        this.runtimeConfig = thing.getRuntimeConfig();
         this.httpClient = thing.getHttpClient();
         this.profile = thing.getProfile();
     }
 
-    public ShellyHttpClient(String thingName, ShellyThingConfiguration config, HttpClient httpClient) {
+    public ShellyHttpClient(String thingName, ShellyThingConfiguration config, ShellyRuntimeConfiguration runtimeConfig, HttpClient httpClient) {
         this.thingName = thingName;
         this.config = config;
+        this.runtimeConfig = runtimeConfig;
         this.httpClient = httpClient;
         this.profile = new ShellyDeviceProfile();
     }
 
-    public synchronized void setConfig(String thingName, ShellyThingConfiguration config) {
+    public synchronized void setConfig(String thingName, ShellyRuntimeConfiguration config) {
         this.thingName = thingName;
-        this.config = config;
+        this.runtimeConfig = config;
     }
 
     /**
@@ -128,7 +134,7 @@ public class ShellyHttpClient {
                 }
                 return apiResult.response; // successful
             } catch (ShellyApiException e) {
-                if (e.isHttpAccessUnauthorized() && !profile.isGen2 && !basicAuth && !config.getPassword().isBlank()) {
+                if (e.isHttpAccessUnauthorized() && !profile.isGen2 && !basicAuth && !runtimeConfig.getPassword().isBlank()) {
                     logger.debug("{}: Access is unauthorized, auto-activate basic auth", thingName);
                     basicAuth = true;
                     apiResult = innerRequest(HttpMethod.GET, uri, null, "");
@@ -164,9 +170,9 @@ public class ShellyHttpClient {
 
     private ShellyApiResult innerRequest(HttpMethod method, String uri, @Nullable Shelly2AuthChallenge auth,
             String data) throws ShellyApiException {
-        String deviceIp = config.getDeviceIp();
-        String userId = config.getUserId();
-        String password = config.getPassword();
+        String deviceIp = runtimeConfig.getDeviceIp();
+        String userId = runtimeConfig.getUserId();
+        String password = runtimeConfig.getPassword();
 
         Request request = null;
         String url = "http://" + deviceIp + uri;
