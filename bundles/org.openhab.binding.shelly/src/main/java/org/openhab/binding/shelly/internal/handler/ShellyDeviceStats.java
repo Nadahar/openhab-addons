@@ -60,7 +60,6 @@ public class ShellyDeviceStats {
         prop.put("protocolMessages", String.valueOf(protocolMessages));
         prop.put("protocolErrors", String.valueOf(protocolErrors));
         prop.put("wifiRssi", String.valueOf(wifiRssi));
-        prop.put("maxInternalTemp", String.valueOf(maxInternalTemp.get()));
         return prop;
     }
 }

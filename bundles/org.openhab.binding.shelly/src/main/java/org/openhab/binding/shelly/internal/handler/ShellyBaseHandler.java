@@ -863,8 +863,7 @@ public abstract class ShellyBaseHandler extends BaseThingHandler
                     logger.debug("{}: {}", thingName, messages.get("event.triggered", event));
                     triggerChannel(channelId, event);
                     cache.updateChannel(channelId, getStringType(event.toUpperCase(Locale.ROOT)));
-                    lastAlarm = new ShellyDeviceAlarm(event, (long) now());
-                    stats.lastAlarm.set(lastAlarm);
+                    stats.lastAlarm.set(new ShellyDeviceAlarm(event, (long) now()));
                     stats.alarms.incrementAndGet();
             }
         }
