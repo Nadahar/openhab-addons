@@ -37,7 +37,7 @@ import org.openhab.binding.shelly.internal.api.ShellyApiException;
 import org.openhab.binding.shelly.internal.api.ShellyApiInterface;
 import org.openhab.binding.shelly.internal.api.ShellyDeviceProfile;
 import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellySettingsUpdate;
-import org.openhab.binding.shelly.internal.config.ShellyThingConfiguration;
+import org.openhab.binding.shelly.internal.config.ShellyRuntimeConfiguration;
 import org.openhab.binding.shelly.internal.handler.ShellyManagerInterface;
 import org.openhab.binding.shelly.internal.provider.ShellyTranslationProvider;
 import org.openhab.core.thing.ThingStatusDetail;
@@ -85,7 +85,7 @@ public class ShellyManagerOtaPage extends ShellyManagerPage {
         ShellyManagerInterface th = getThingHandlers().get(uid);
         if (th != null) {
             properties = fillProperties(new HashMap<>(), uid, th);
-            ShellyThingConfiguration config = getThingConfig(th, properties);
+            ShellyRuntimeConfiguration config = th.getRuntimeConfig();
             ShellyDeviceProfile profile = th.getProfile();
             String deviceType = getDeviceType(properties);
 

@@ -46,7 +46,7 @@ import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotDevDescr
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotGenericSensorList;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotSensor;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotSensorTypeAdapter;
-import org.openhab.binding.shelly.internal.config.ShellyThingConfiguration;
+import org.openhab.binding.shelly.internal.config.ShellyRuntimeConfiguration;
 import org.openhab.binding.shelly.internal.handler.ShellyColorUtils;
 import org.openhab.binding.shelly.internal.handler.ShellyThingInterface;
 import org.openhab.core.library.unit.Units;
@@ -69,7 +69,7 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
 
     private final Logger logger = LoggerFactory.getLogger(Shelly1CoapHandler.class);
     private final ShellyThingInterface thingHandler;
-    private final ShellyThingConfiguration config;
+    private final ShellyRuntimeConfiguration config;
     private final GsonBuilder gsonBuilder = new GsonBuilder();
     private final Gson gson;
     private String thingName;
@@ -92,7 +92,7 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
     private ShellyDeviceProfile profile;
     private ShellyApiInterface api;
 
-    public Shelly1CoapHandler(ShellyThingInterface thingHandler, String thingName, ShellyThingConfiguration config,
+    public Shelly1CoapHandler(ShellyThingInterface thingHandler, String thingName, ShellyRuntimeConfiguration config,
             Shelly1CoapServer coapServer) {
         this.thingHandler = thingHandler;
         this.thingName = thingName;
@@ -111,7 +111,7 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
      * Initialize CoAP access, send discovery packet and start Status server
      *
      * @param thingName Thing name derived from Thing Type/hostname
-     * @param config ShellyThingConfiguration
+     * @param runtimeConfig ShellyThingConfiguration
      * @throws ShellyApiException
      */
     public synchronized void start() throws ShellyApiException {

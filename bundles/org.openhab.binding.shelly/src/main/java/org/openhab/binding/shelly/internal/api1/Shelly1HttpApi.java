@@ -46,6 +46,7 @@ import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyStatusRe
 import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyStatusSensor;
 import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyThermnostat;
 import org.openhab.binding.shelly.internal.config.ShellyThingConfiguration;
+import org.openhab.binding.shelly.internal.config.ShellyRuntimeConfiguration;
 import org.openhab.binding.shelly.internal.handler.ShellyThingInterface;
 import org.openhab.core.library.unit.ImperialUnits;
 import org.openhab.core.library.unit.SIUnits;
@@ -75,16 +76,16 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
      * Simple initialization - called by discovery handler
      *
      * @param thingName Symbolic thing name
-     * @param config Thing Configuration
+     * @param runtimeConfig Thing Configuration
      * @param httpClient HTTP Client to be passed to ShellyHttpClient
      */
-    public Shelly1HttpApi(String thingName, ShellyThingConfiguration config, HttpClient httpClient) {
-        super(thingName, config, httpClient);
+    public Shelly1HttpApi(String thingName, ShellyThingConfiguration config, ShellyRuntimeConfiguration runtimeConfig, HttpClient httpClient) {
+        super(thingName, config, runtimeConfig, httpClient);
         this.profile = new ShellyDeviceProfile();
     }
 
     @Override
-    public void initialize(String thingName, ShellyThingConfiguration config) throws ShellyApiException {
+    public void initialize(String thingName, ShellyRuntimeConfiguration config) throws ShellyApiException {
         setConfig(thingName, config);
     }
 
@@ -608,7 +609,7 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
     }
 
     private void setEventUrl(boolean enabled, String... eventTypes) throws ShellyApiException {
-        if (config.getLocalIp().isEmpty()) {
+        if (runtimeConfig.getLocalIp().isEmpty()) {
             throw new ShellyApiException(thingName + ": Local IP address was not detected, can't build Callback URL");
         }
         for (String eventType : eventTypes) {
@@ -616,7 +617,7 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
                 // H&T adds the type=xx to report_url itself, so we need to ommit here
                 String eclass = profile.isSensor ? EVENT_TYPE_SENSORDATA : eventType;
                 String urlParm = eventType.contains("temp") || profile.isHT ? "" : "?type=" + eventType;
-                String callBackUrl = "http://" + config.getLocalIp() + ":" + config.getLocalPort()
+                String callBackUrl = "http://" + runtimeConfig.getLocalIp() + ":" + runtimeConfig.getLocalPort()
                         + SHELLY1_CALLBACK_URI + "/" + profile.thingName + "/" + eclass + urlParm;
                 String newUrl = enabled ? callBackUrl : SHELLY_NULL_URL;
                 String testUrl = "\"" + mkEventUrl(eventType) + "\":\"" + newUrl + "\"";
@@ -638,7 +639,7 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
             throws ShellyApiException {
         for (String eventType : eventTypes) {
             if (profile.containsEventUrl(eventType)) {
-                String callBackUrl = "http://" + config.getLocalIp() + ":" + config.getLocalPort()
+                String callBackUrl = "http://" + runtimeConfig.getLocalIp() + ":" + runtimeConfig.getLocalPort()
                         + SHELLY1_CALLBACK_URI + "/" + profile.thingName + "/" + deviceClass + "/" + index + "?type="
                         + eventType;
                 String newUrl = enabled ? callBackUrl : SHELLY_NULL_URL;
