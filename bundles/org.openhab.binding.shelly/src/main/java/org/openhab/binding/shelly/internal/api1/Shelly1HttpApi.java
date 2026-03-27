@@ -571,7 +571,7 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
     private void setSensorEventUrls() throws ShellyApiException, ShellyApiException {
         if (profile.isSensor) {
             logger.debug("{}: Set Sensor Reporting URL", thingName);
-            setEventUrl(!runtimeConfig.isEventsCoIoT() && config.getEventsSensorReport(), SHELLY_EVENT_SENSORREPORT, SHELLY_EVENT_DARK,
+            setEventUrl(!config.getEventsCoIoT() && config.getEventsSensorReport(), SHELLY_EVENT_SENSORREPORT, SHELLY_EVENT_DARK,
                     SHELLY_EVENT_TWILIGHT, SHELLY_EVENT_FLOOD_DETECTED, SHELLY_EVENT_FLOOD_GONE, SHELLY_EVENT_OPEN,
                     SHELLY_EVENT_CLOSE, SHELLY_EVENT_VIBRATION, SHELLY_EVENT_ALARM_MILD, SHELLY_EVENT_ALARM_HEAVY,
                     SHELLY_EVENT_ALARM_OFF, SHELLY_EVENT_TEMP_OVER, SHELLY_EVENT_TEMP_UNDER);
@@ -585,7 +585,7 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
      * @throws ShellyApiException
      */
     private void setEventUrls(Integer index) throws ShellyApiException {
-        boolean eventsCoIoT = runtimeConfig.isEventsCoIoT();
+        boolean eventsCoIoT = config.getEventsCoIoT();
         if (profile.isRoller) {
             setEventUrl(EVENT_TYPE_ROLLER, 0, !eventsCoIoT && config.getEventsRoller(), SHELLY_EVENT_ROLLER_OPEN,
                     SHELLY_EVENT_ROLLER_CLOSE, SHELLY_EVENT_ROLLER_STOP);

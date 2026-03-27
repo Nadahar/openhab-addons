@@ -172,7 +172,7 @@ public abstract class ShellyBaseHandler extends BaseThingHandler
         config = getConfigAs(ShellyThingConfiguration.class);
         runtimeConfig = new ShellyRuntimeConfiguration(thingName, config, bindingConfig, realm, gen2);
 
-        coap = runtimeConfig.isEventsCoIoT() ? new Shelly1CoapHandler(this, thingName, runtimeConfig, coapServer) : null;
+        coap = !gen2 && config.getEventsCoIoT() ? new Shelly1CoapHandler(this, thingName, runtimeConfig, coapServer) : null;
     }
 
     @Override
@@ -305,7 +305,7 @@ public abstract class ShellyBaseHandler extends BaseThingHandler
         logger.debug(
                 "{}: Start initializing for thing {}, type {}, Device address {}, Gen2: {}, isBlu: {}, alwaysOn: {}, hasBattery: {}, CoIoT: {}",
                 thingName, getThing().getLabel(), thingType, runtimeConfig.getDeviceAddress().toUpperCase(Locale.ROOT), gen2,
-                profile.isBlu, profile.alwaysOn, profile.hasBattery, runtimeConfig.isEventsCoIoT());
+                profile.isBlu, profile.alwaysOn, profile.hasBattery, !gen2 && config.getEventsCoIoT());
         if (runtimeConfig.getDeviceAddress().isEmpty()) {
             setThingOfflineAndDisconnect(ThingStatusDetail.CONFIGURATION_ERROR,
                     "config-status.error.missing-device-address");
@@ -324,7 +324,7 @@ public abstract class ShellyBaseHandler extends BaseThingHandler
         // could not be fully initialized here. In this case the CoAP messages triggers auto-initialization (like the
         // Action URL does when enabled)
         Shelly1CoapHandler coap = this.coap;
-        if (coap != null && runtimeConfig.isEventsCoIoT() && !profile.alwaysOn) {
+        if (coap != null && config.getEventsCoIoT() && !profile.alwaysOn) {
             coap.start();
         }
 
@@ -387,9 +387,13 @@ public abstract class ShellyBaseHandler extends BaseThingHandler
         // Check for Range Extender mode, add secondary device to Inbox
         checkRangeExtender(tmpPrf);
 
-        startCoap(tmpPrf);
-        if (!gen2 && !blu) {
-            api.setActionURLs(); // register event urls
+        if (!gen2) {
+            if (config.getEventsCoIoT()) {
+                startCoap(tmpPrf);
+            }
+            if (!blu) {
+                api.setActionURLs(); // register event urls
+            }
         }
 
         // All initialization done, so keep the profile and set Thing to ONLINE
@@ -1075,7 +1079,7 @@ public abstract class ShellyBaseHandler extends BaseThingHandler
         }
         if (!gen2 && bindingConfig.autoCoIoT && ((version.compare(prf.fwVersion, SHELLY_API_MIN_FWCOIOT)) >= 0)
                 || ("production_test".equalsIgnoreCase(prf.fwVersion))) {
-            if (!runtimeConfig.isEventsCoIoT()) {
+            if (!config.getEventsCoIoT()) {
                 logger.info("{}: {}", thingName, messages.get("versioncheck.autocoiot"));
             }
             autoCoIoT = true;
@@ -1096,7 +1100,7 @@ public abstract class ShellyBaseHandler extends BaseThingHandler
     }
 
     public void startCoap(ShellyDeviceProfile profile) throws ShellyApiException {
-        if (coap == null || !runtimeConfig.isEventsCoIoT()) {
+        if (coap == null) {
             return;
         }
         if (profile.settings.coiot != null && profile.settings.coiot.enabled != null) {

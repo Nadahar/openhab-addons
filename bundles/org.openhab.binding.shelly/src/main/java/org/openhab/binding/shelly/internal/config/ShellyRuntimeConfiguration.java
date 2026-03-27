@@ -24,7 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The {@link ShellyRuntimeConfiguration} class contains fields mapping thing configuration parameters.
+ * The {@link ShellyRuntimeConfiguration} class contains the thing runtime configuration parameters.
  *
  * @author Markus Michels - Initial contribution
  */
@@ -35,14 +35,14 @@ public class ShellyRuntimeConfiguration {
     // All access must be guarded by "this"
     private String realm;
 
-    private final String localIp; // local ip addresses used to create callback url
+    /** Local IP address used to create callback URL */
+    private final String localIp;
     private final String localPort;
     private final String deviceIp;
     private final String deviceAddress;
     private final String userId;
     private final String password;
     private final int updateInterval;
-    private final boolean eventsCoIoT;
 
     public ShellyRuntimeConfiguration(String thingName, ShellyThingConfiguration config,
             ShellyBindingConfiguration bindingConfig, String realm, boolean gen2) {
@@ -52,7 +52,6 @@ public class ShellyRuntimeConfiguration {
         String userId = config.getUserId();
         String password = config.getPassword();
         int updateInterval = config.getUpdateInterval();
-        boolean eventsCoIoT = config.getEventsCoIoT();
 
         if (deviceAddress.isEmpty()) {
             if (!deviceIp.isEmpty()) {
@@ -97,15 +96,6 @@ public class ShellyRuntimeConfiguration {
             updateInterval = UPDATE_MIN_DELAY;
         }
         this.updateInterval = updateInterval;
-
-        if (gen2) {
-            eventsCoIoT = false;
-        }
-        this.eventsCoIoT = eventsCoIoT;
-        if (eventsCoIoT) {
-            logger.debug("{}: Auto-CoIoT is enabled, disabling action urls", thingName);
-        }
-
         this.localIp = bindingConfig.localIP;
         this.localPort = String.valueOf(bindingConfig.httpPort != -1 ? bindingConfig.httpPort : DEFAULT_LOCAL_PORT);
         this.realm = getString(realm);
@@ -123,7 +113,6 @@ public class ShellyRuntimeConfiguration {
         ShellyThingConfiguration config = new ShellyThingConfiguration();
         this.deviceAddress = config.getDeviceAddress();
         this.updateInterval = config.getUpdateInterval();
-        this.eventsCoIoT = config.getEventsCoIoT();
     }
 
     public String getLocalIp() {
@@ -162,14 +151,9 @@ public class ShellyRuntimeConfiguration {
         return updateInterval;
     }
 
-    public boolean isEventsCoIoT() {
-        return eventsCoIoT;
-    }
-
     @Override
     public String toString() {
         return "Device address=" + deviceAddress + ", HTTP user/password=" + userId + "/"
-                + (password.isEmpty() ? "<none>" : "***") + ", update interval=" + updateInterval + "\n"
-                + "CoIoT: " + eventsCoIoT + "\n";
+                + (password.isEmpty() ? "<none>" : "***") + ", update interval=" + updateInterval + "\n";
     }
 }
