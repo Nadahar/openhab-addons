@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
  */
 @NonNullByDefault
 public class ShellyRuntimeConfiguration {
-    protected final Logger logger = LoggerFactory.getLogger(ShellyRuntimeConfiguration.class);
+    private final Logger logger = LoggerFactory.getLogger(ShellyRuntimeConfiguration.class);
 
     // All access must be guarded by "this"
     private String realm;
@@ -102,6 +102,9 @@ public class ShellyRuntimeConfiguration {
             eventsCoIoT = false;
         }
         this.eventsCoIoT = eventsCoIoT;
+        if (eventsCoIoT) {
+            logger.debug("{}: Auto-CoIoT is enabled, disabling action urls", thingName);
+        }
 
         this.localIp = bindingConfig.localIP;
         this.localPort = String.valueOf(bindingConfig.httpPort != -1 ? bindingConfig.httpPort : DEFAULT_LOCAL_PORT);

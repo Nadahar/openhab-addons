@@ -59,8 +59,7 @@ public class ShellyThingConfiguration {
         String value = deviceAddress;
         return value;
     }
-            logger.debug("{}: Auto-CoIoT is enabled, disabling action urls", thingName);
-            disableGen1Events();
+
     public int getUpdateInterval() {
         return updateInterval;
     }
@@ -89,6 +88,27 @@ public class ShellyThingConfiguration {
         return enableRangeExtender;
     }
 
+    /*
+     * Those getter/setter need synchronization
+     */
+    public synchronized String getUserId() {
+        String value = userId;
+        return value;
+    }
+
+    public synchronized void setUserId(String userId) {
+        this.userId = userId;
+    }
+
+    public synchronized String getPassword() {
+        String value = password;
+        return value;
+    }
+
+    public synchronized void setPassword(String password) {
+        this.password = password;
+    }
+
     public boolean getEventsButton() {
         return eventsButton;
     }
@@ -111,35 +131,5 @@ public class ShellyThingConfiguration {
 
     public boolean getEventsCoIoT() {
         return eventsCoIoT;
-    }
-
-    /*
-     * Those getter/setter need synchronization
-     */
-    public synchronized String getUserId() {
-        String value = userId;
-        return value;
-    }
-
-    public synchronized void setUserId(String userId) {
-        this.userId = userId;
-    }
-
-    public synchronized String getPassword() {
-        String value = password;
-        return value;
-    }
-
-    public synchronized void setPassword(String password) {
-        this.password = password;
-    }
-
-    public synchronized void disableGen1Events() {
-        eventsCoIoT = true;
-        eventsSwitch = false;
-        eventsButton = false;
-        eventsPush = false;
-        eventsRoller = false;
-        eventsSensorReport = false;
     }
 }
