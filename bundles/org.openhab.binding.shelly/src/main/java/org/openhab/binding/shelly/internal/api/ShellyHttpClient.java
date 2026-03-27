@@ -74,7 +74,7 @@ public class ShellyHttpClient {
     protected volatile boolean basicAuth = false;
 
     // All access must be guarded by "this"
-    protected volatile ShellyThingConfiguration config;
+    protected final ShellyThingConfiguration config;
 
     // All access must be guarded by "this"
     protected ShellyRuntimeConfiguration runtimeConfig;

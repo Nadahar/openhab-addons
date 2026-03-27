@@ -47,12 +47,12 @@ public class ShellyRuntimeConfiguration {
     public ShellyRuntimeConfiguration(String thingName, ShellyThingConfiguration config,
             ShellyBindingConfiguration bindingConfig, String realm, boolean gen2) {
 
-        String deviceAddress = config.deviceAddress;
-        String deviceIp = config.deviceIp;
-        String userId = config.userId;
-        String password = config.password;
-        int updateInterval = config.updateInterval;
-        boolean eventsCoIoT = config.eventsCoIoT;
+        String deviceAddress = config.getDeviceAddress();
+        String deviceIp = config.getDeviceIp();
+        String userId = config.getUserId();
+        String password = config.getPassword();
+        int updateInterval = config.getUpdateInterval();
+        boolean eventsCoIoT = config.getEventsCoIoT();
 
         if (deviceAddress.isEmpty()) {
             if (!deviceIp.isEmpty()) {
@@ -121,9 +121,9 @@ public class ShellyRuntimeConfiguration {
 
         // Create a default config to get default values
         ShellyThingConfiguration config = new ShellyThingConfiguration();
-        this.deviceAddress = config.deviceAddress;
-        this.updateInterval = config.updateInterval;
-        this.eventsCoIoT = config.eventsCoIoT;
+        this.deviceAddress = config.getDeviceAddress();
+        this.updateInterval = config.getUpdateInterval();
+        this.eventsCoIoT = config.getEventsCoIoT();
     }
 
     public String getLocalIp() {

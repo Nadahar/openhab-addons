@@ -90,12 +90,6 @@ public class ShellyBluApi extends Shelly2ApiRpc {
     }
 
     @Override
-    public void setConfig(String thingName, ShellyRuntimeConfiguration config) {
-        this.thingName = thingName;
-        this.runtimeConfig = config;
-    }
-
-    @Override
     public ShellySettingsDevice getDeviceInfo() throws ShellyApiException {
         ShellySettingsDevice info = new ShellySettingsDevice();
         info.hostname = !runtimeConfig.getRealm().isEmpty() ? runtimeConfig.getRealm() : "";

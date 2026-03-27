@@ -21,43 +21,63 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
  */
 @NonNullByDefault
 public class ShellyThingConfiguration {
-    protected String deviceIp = ""; // ip address of thedevice
-    protected String deviceAddress = ""; // IP address or MAC address for BLU devices
 
-    // All access must be guarded by "this"
-    protected String userId = ""; // userid for http basic auth
+    /** IP address of the device */
+    private String deviceIp = "";
 
-    // All access must be guarded by "this"
-    protected String password = ""; // password for http basic auth
+    /** IP address or MAC address for BLU devices */
+    private String deviceAddress = "";
 
-    protected int updateInterval = 60; // schedule interval for the update job
-    protected int lowBattery = 15; // threshold for battery value
-    protected boolean brightnessAutoOn = true; // true: turn on device if brightness > 0 is set
+    /** userid for HTTP basic auth */
+    private String userId = "";
 
-    protected int favoriteUP = 0; // Roller position favorite when control channel receives ON, 0=none
-    protected int favoriteDOWN = 0; // Roller position favorite when control channel receives ON, 0=none
+    /** password for HTTP basic auth */
+    private String password = "";
+
+    /** schedule interval for the update job */
+    private int updateInterval = 60;
+
+    /** threshold for battery value */
+    private int lowBattery = 15;
+
+    /** {@code true}: turn on device if brightness > 0 is set */
+    private boolean brightnessAutoOn = true;
+
+    /** Roller position favorite when control channel receives ON, 0=none */
+    private int favoriteUP = 0;
+
+    /** Roller position favorite when control channel receives ON, 0=none */
+    private int favoriteDOWN = 0;
 
     // Gen1
-    // All access must be guarded by "this"
-    protected boolean eventsButton = false; // true: register for Relay btn_xxx events
-    protected boolean eventsSwitch = true; // true: register for device out_xxx events
-    protected boolean eventsPush = true; // true: register for short/long push events
-    protected boolean eventsRoller = true; // true: register for short/long push events
-    protected boolean eventsSensorReport = true; // true: register for sensor events
-    protected boolean eventsCoIoT = false; // true: use CoIoT events (based on COAP)
+    /** {@code true}: register for Relay btn_xxx events */
+    private boolean eventsButton = false;
+
+    /** {@code true}: register for device out_xxx events */
+    private boolean eventsSwitch = true;
+
+    /** {@code true}: register for short/long push events */
+    private boolean eventsPush = true;
+
+    /** {@code true}: register for short/long push events */
+    private boolean eventsRoller = true;
+
+    /** {@code true}: register for sensor events */
+    private boolean eventsSensorReport = true;
+
+    /** {@code true}: use CoIoT events (based on COAP) */
+    private boolean eventsCoIoT = false;
 
     // Gen2
-    protected Boolean enableBluGateway = false;
-    protected Boolean enableRangeExtender = true;
+    private Boolean enableBluGateway = false;
+    private Boolean enableRangeExtender = true;
 
     public String getDeviceIp() {
-        String value = deviceIp;
-        return value;
+        return deviceIp;
     }
 
     public String getDeviceAddress() {
-        String value = deviceAddress;
-        return value;
+        return deviceAddress;
     }
 
     public int getUpdateInterval() {
@@ -88,25 +108,12 @@ public class ShellyThingConfiguration {
         return enableRangeExtender;
     }
 
-    /*
-     * Those getter/setter need synchronization
-     */
-    public synchronized String getUserId() {
-        String value = userId;
-        return value;
+    public String getUserId() {
+        return userId;
     }
 
-    public synchronized void setUserId(String userId) {
-        this.userId = userId;
-    }
-
-    public synchronized String getPassword() {
-        String value = password;
-        return value;
-    }
-
-    public synchronized void setPassword(String password) {
-        this.password = password;
+    public String getPassword() {
+        return password;
     }
 
     public boolean getEventsButton() {
