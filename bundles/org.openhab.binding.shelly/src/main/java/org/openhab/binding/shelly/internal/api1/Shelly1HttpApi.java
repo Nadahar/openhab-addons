@@ -85,8 +85,8 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
     }
 
     @Override
-    public void initialize(String thingName, ShellyRuntimeConfiguration config) throws ShellyApiException {
-        setConfig(thingName, config);
+    public void initialize(String thingName, ShellyRuntimeConfiguration runtimeConfig) throws ShellyApiException {
+        setConfig(thingName, runtimeConfig);
     }
 
     @Override

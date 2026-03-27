@@ -183,8 +183,8 @@ public class Shelly2ApiClient extends ShellyHttpClient implements ShellyDiscover
             SHELLY2_PROFILE_RGBW, SHELLY_MODE_COLOR);
 
     @Override
-    public void initialize(String thingName, ShellyRuntimeConfiguration config) throws ShellyApiException {
-        setConfig(thingName, config);
+    public void initialize(String thingName, ShellyRuntimeConfiguration runtimeConfig) throws ShellyApiException {
+        setConfig(thingName, runtimeConfig);
     }
 
     @Override

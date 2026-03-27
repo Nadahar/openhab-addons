@@ -85,13 +85,13 @@ public class ShellyManagerOtaPage extends ShellyManagerPage {
         ShellyManagerInterface th = getThingHandlers().get(uid);
         if (th != null) {
             properties = fillProperties(new HashMap<>(), uid, th);
-            ShellyRuntimeConfiguration config = th.getRuntimeConfig();
+            ShellyRuntimeConfiguration runtimeConfig = th.getRuntimeConfig();
             ShellyDeviceProfile profile = th.getProfile();
             String deviceType = getDeviceType(properties);
 
             String mode = getString(profile.device.mode);
             String uri = !url.isEmpty() && connection.equals(CONNECTION_TYPE_CUSTOM) ? url
-                    : getFirmwareUrl(config.getDeviceIp(), deviceType, mode, version,
+                    : getFirmwareUrl(runtimeConfig.getDeviceIp(), deviceType, mode, version,
                             connection.equals(CONNECTION_TYPE_LOCAL));
             if (connection.equalsIgnoreCase(CONNECTION_TYPE_INTERNET)) {
                 // If target

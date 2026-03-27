@@ -97,9 +97,9 @@ public class ShellyHttpClient {
         this.profile = new ShellyDeviceProfile();
     }
 
-    public synchronized void setConfig(String thingName, ShellyRuntimeConfiguration config) {
+    public synchronized void setConfig(String thingName, ShellyRuntimeConfiguration runtimeConfig) {
         this.thingName = thingName;
-        this.runtimeConfig = config;
+        this.runtimeConfig = runtimeConfig;
     }
 
     /**
