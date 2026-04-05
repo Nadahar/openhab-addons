@@ -27,47 +27,8 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Build and Run SAT Plugin
+      - name: Build and match
         # Vi kjører compile først for å sikre at SpotBugs har bytecode å analysere
-        run: mvn clean compile -DskipTests -B -pl :org.openhab.binding.enocean
-
-      - name: Setup reviewdog CLI
-        uses: reviewdog/action-setup@v1
-        with:
-          reviewdog_version: latest
-
-      - name: Report Checkstyle results via reviewdog
-        env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          echo "Looking for Checkstyle reports..."
-          find . -type f -path '*/target/checkstyle-result.xml' -print0 | \
-            while IFS= read -r -d '' f; do
-              echo "Processing $f"
-              reviewdog -f=checkstyle -name="checkstyle" -reporter=github-pr-check -level=warning -filter-mode=added < "$f"
-            done
-
-      - name: Report PMD results via reviewdog
-        env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          echo "Looking for PMD reports..."
-          find . -type f -path '*/target/pmd.xml' -print0 | \
-            while IFS= read -r -d '' f; do
-              echo "Processing $f"
-              reviewdog -f=pmd -name="pmd" -reporter=github-pr-check -level=warning -filter-mode=added < "$f"
-            done
-
-      - name: Report SpotBugs results via reviewdog
-        env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          echo "Looking for SpotBugs reports..."
-          find . -type f -path '*/target/spotbugsXml.xml' -print0 | \
-            while IFS= read -r -d '' f; do
-              echo "Processing $f"
-              reviewdog -f=spotbugs -name="spotbugs" -reporter=github-pr-check -level=warning -filter-mode=added < "$f"
-            done
+        run: | 
+          echo "::add-matcher::.github/maven-matcher.json"
+          mvn clean compile -DskipTests -B -pl :org.openhab.binding.enocean
