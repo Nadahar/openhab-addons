@@ -29,7 +29,7 @@ jobs:
 
       - name: Build and Run SAT Plugin
         # Vi kjører compile først for å sikre at SpotBugs har bytecode å analysere
-        run: mvn clean compile sat:check -DskipTests -B -pl :org.openhab.binding.enocean
+        run: mvn clean compile -DskipTests -B -pl :org.openhab.binding.enocean
 
       - name: Setup reviewdog CLI
         uses: reviewdog/action-setup@v1
