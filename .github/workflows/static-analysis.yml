@@ -31,28 +31,43 @@ jobs:
         # Vi kjører compile først for å sikre at SpotBugs har bytecode å analysere
         run: mvn clean compile sat:check -DskipTests -B -pl :org.openhab.binding.enocean
 
-      - name: Report New Checkstyle Warnings
-        uses: reviewdog/action-checkstyle@v1
+      - name: Setup reviewdog CLI
+        uses: reviewdog/action-setup@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          filter_mode: added # Viser kun NYE feil i denne PR-en
-          reporter: github-pr-check
-          level: warning
-          pattern: '**/target/checkstyle-result.xml'
+          reviewdog_version: latest
 
-      - name: Report New PMD Warnings
-        uses: reviewdog/action-pmd@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          filter_mode: added
-          reporter: github-pr-check
-          level: warning
-          pattern: '**/target/pmd.xml'
+      - name: Report Checkstyle results via reviewdog
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          echo "Looking for Checkstyle reports..."
+          find . -type f -path '*/target/checkstyle-result.xml' -print0 | \
+            while IFS= read -r -d '' f; do
+              echo "Processing $f"
+              reviewdog -f=checkstyle -name="checkstyle" -reporter=github-pr-check -level=warning -filter-mode=added < "$f"
+            done
 
-      - name: Report New SpotBugs Warnings
-        # SpotBugs XML-formatet krever ofte en litt annen parser
-        uses: reviewdog/action-suggester@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          tool_name: SpotBugs
-          # Hvis SAT lager spotbugsXml.xml, kan vi fange opp endringer her
+      - name: Report PMD results via reviewdog
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          echo "Looking for PMD reports..."
+          find . -type f -path '*/target/pmd.xml' -print0 | \
+            while IFS= read -r -d '' f; do
+              echo "Processing $f"
+              reviewdog -f=pmd -name="pmd" -reporter=github-pr-check -level=warning -filter-mode=added < "$f"
+            done
+
+      - name: Report SpotBugs results via reviewdog
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          echo "Looking for SpotBugs reports..."
+          find . -type f -path '*/target/spotbugsXml.xml' -print0 | \
+            while IFS= read -r -d '' f; do
+              echo "Processing $f"
+              reviewdog -f=spotbugs -name="spotbugs" -reporter=github-pr-check -level=warning -filter-mode=added < "$f"
+            done
