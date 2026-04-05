@@ -2,7 +2,7 @@ name: openHAB Static Analysis (Java 21)
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, PR-warnings ]
   workflow_dispatch:
 
 jobs:
