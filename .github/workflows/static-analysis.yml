@@ -1,0 +1,57 @@
+name: openHAB Static Analysis (Java 21)
+
+on:
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  analyze:
+    name: Check New Warnings
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Viktig for at Reviewdog skal kunne sammenligne diff
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build and Run SAT Plugin
+        # Vi kjører compile først for å sikre at SpotBugs har bytecode å analysere
+        run: mvn clean compile sat:check -DskipTests -B -pl :org.openhab.binding.enocean
+
+      - name: Report New Checkstyle Warnings
+        uses: reviewdog/action-checkstyle@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          filter_mode: added # Viser kun NYE feil i denne PR-en
+          reporter: github-pr-check
+          level: warning
+          pattern: '**/target/checkstyle-result.xml'
+
+      - name: Report New PMD Warnings
+        uses: reviewdog/action-pmd@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          filter_mode: added
+          reporter: github-pr-check
+          level: warning
+          pattern: '**/target/pmd.xml'
+
+      - name: Report New SpotBugs Warnings
+        # SpotBugs XML-formatet krever ofte en litt annen parser
+        uses: reviewdog/action-suggester@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tool_name: SpotBugs
+          # Hvis SAT lager spotbugsXml.xml, kan vi fange opp endringer her
