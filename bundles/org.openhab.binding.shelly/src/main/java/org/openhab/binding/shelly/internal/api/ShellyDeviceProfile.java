@@ -450,4 +450,387 @@ public class ShellyDeviceProfile {
         // If device is not yet intialized or the enabled property is missing we assume that CoIoT is enabled
         return true;
     }
+
+    public static class ShellyDeviceProfileBuilder {
+        private @Nullable String thingName = "";
+        private boolean extFeatures;
+
+        private @Nullable String settingsJson;
+        private @Nullable ShellySettingsDevice device;
+        private @Nullable ShellySettingsGlobal settings;
+        private @Nullable ShellySettingsStatus status;
+
+        private @Nullable String name;
+        private boolean discoverable = true;
+        private boolean alwaysOn = true;
+        private boolean isGen2;
+        private boolean isBlu;
+        private @Nullable String gateway;
+
+        private @Nullable String hwRev;
+        private @Nullable String hwBatchId;
+        private @Nullable String fwVersion;
+        private @Nullable String fwDate;
+
+        public boolean hasRelays = false; // true if it has at least 1 power meter
+        public int numRelays = 0; // number of relays/outputs
+        public int numRollers = 0; // number of Rollers, usually 1
+        public boolean isRoller = false; // true for Shelly2 in roller mode
+        public boolean isDimmer = false; // true for a Shelly Dimmer
+        public int numInputs = 0; // number of inputs
+
+        private int numMeters;
+        private boolean isEMeter; // true for ShellyEM/3EM
+        private boolean isCB; // true for Shelly Pro CB
+
+        private boolean isLight; // true if it is a Shelly Bulb/RGBW2
+        private boolean isBulb; // true only if it is a Bulb
+        private boolean isDuo; // true only if it is a Duo
+        private boolean isRGBW2; // true only if it a RGBW2
+        private boolean inColor; // true if bulb/rgbw2 is in color mode
+
+        private boolean isSensor; // true for HT & Smoke
+        private boolean hasBattery; // true if battery device
+        private boolean isSense; // true if thing is a Shelly Sense
+        private boolean isHT; // true for H&T
+        private boolean isDW; // true for Door Window sensor
+        private boolean isButton; // true for a Shelly Button 1
+        private boolean isMultiButton; // true for a Shelly BLU Wall Switch 4 or RC Button 4
+        private boolean isMotion; // true if thing is a Shelly Motion
+        private boolean isDistance; // true if thing is a Shelly BLU Distance
+        private boolean isRemote; // true if thing is a Shelly BLU Remote
+        private boolean isIX; // true for a Shelly IX
+        private boolean isTRV; // true for a Shelly TRV
+        private boolean isSmoke; // true for Shelly Smoke
+        private boolean isWall; // true: Shelly Wall Display
+        private boolean is3EM; // true for Shelly 3EM and Pro 3EM
+        private boolean isEM50; // true for Shelly Pro EM50
+
+        private int minTemp; // Bulb/Duo: Min Light Temp
+        private int maxTemp; // Bulb/Duo: Max Light Temp
+
+        private int updatePeriod = 2 * UPDATE_SETTINGS_INTERVAL_SECONDS + 10;
+
+        private @Nullable String coiotEndpoint;
+
+        private @Nullable Map<String, String> irCodes; // Sense: list of stored IR codes
+
+        public void initFromThingType(ThingTypeUID thingTypeUID) {
+            isBlu = isBluSeries(thingTypeUID); // e.g. SBBT for BLU Button
+            isGen2 = isGeneration2(thingTypeUID);
+
+            isDimmer = GROUP_DIMMER_THING_TYPES.contains(thingTypeUID);
+            isBulb = THING_TYPE_SHELLYBULB.equals(thingTypeUID);
+            isDuo = GROUP_DUO_THING_TYPES.contains(thingTypeUID);
+            isRGBW2 = GROUP_RGBW2_THING_TYPES.contains(thingTypeUID);
+            isLight = GROUP_LIGHT_THING_TYPES.contains(thingTypeUID);
+            if (isLight) {
+                minTemp = isBulb ? MIN_COLOR_TEMP_BULB : MIN_COLOR_TEMP_DUO;
+                maxTemp = isBulb ? MAX_COLOR_TEMP_BULB : MAX_COLOR_TEMP_DUO;
+            }
+
+            boolean isFlood = GROUP_FLOOD_THING_TYPES.contains(thingTypeUID);
+            boolean isGas = GROUP_GAS_THING_TYPES.contains(thingTypeUID);
+            boolean isUNI = GROUP_UNI_THING_TYPES.contains(thingTypeUID);
+            isSmoke = GROUP_SMOKE_THING_TYPES.contains(thingTypeUID);
+            isHT = GROUP_HT_THING_TYPES.contains(thingTypeUID);
+            isDW = GROUP_DOORWINDOW_THING_TYPES.contains(thingTypeUID);
+            isMotion = GROUP_MOTION_THING_TYPES.contains(thingTypeUID);
+            isSense = THING_TYPE_SHELLYSENSE.equals(thingTypeUID);
+            isDistance = THING_TYPE_SHELLYBLUDISTANCE.equals(thingTypeUID);
+            isRemote = THING_TYPE_SHELLYBLUREMOTE.equals(thingTypeUID);
+            isIX = GROUP_IX_THING_TYPES.contains(thingTypeUID);
+            isButton = GROUP_BUTTON_THING_TYPES.contains(thingTypeUID);
+            isMultiButton = GROUP_MULTIBUTTON_THING_TYPES.contains(thingTypeUID);
+            isTRV = THING_TYPE_SHELLYTRV.equals(thingTypeUID);
+            isWall = GROUP_WALLDISPLAY_THING_TYPES.contains(thingTypeUID);
+            is3EM = GROUP_3EM_THING_TYPES.contains(thingTypeUID);
+            isEM50 = THING_TYPE_SHELLYPROEM50.equals(thingTypeUID);
+
+            isSensor = isHT || isFlood || isDW || isSmoke || isGas || isButton || isMultiButton || isUNI || isMotion
+                    || isSense || isTRV || isWall;
+            hasBattery = isHT || isFlood || isDW || isSmoke || isButton || isMotion || isTRV || isBlu;
+            // true means: device is reachable all the time (no sleep mode)
+            alwaysOn = !hasBattery || (isMotion && !isBlu) || isSense;
+        }
+
+        public void initializeInputs(ThingTypeUID thingTypeUID, @Nullable String btnType) {
+            Integer predefinedNumInputs = THING_TYPE_CAP_NUM_INPUTS.get(thingTypeUID);
+            if (numInputs == 0 && predefinedNumInputs != null) {
+                numInputs = predefinedNumInputs;
+            }
+            if (numInputs > 0) {
+                ShellySettingsInput inputSetting = btnType == null || btnType.isBlank() ? new ShellySettingsInput() : new ShellySettingsInput(btnType);
+                ShellySettingsStatus status = this.status;
+                if (status == null) {
+                    this.status = status = new ShellySettingsStatus();
+                }
+                status.inputs = new ArrayList<>();
+                ArrayList<@Nullable ShellySettingsInput> inputs = new ArrayList<>();
+                for (int i = 0; i < numInputs; i++) {
+                    inputs.add(inputSetting);
+                    status.inputs.add(new ShellyInputState(i));
+                }
+                ShellySettingsGlobal settings = this.settings;
+                if (settings == null) {
+                    this.settings = settings = new ShellySettingsGlobal();
+                }
+                settings.inputs = inputs;
+            }
+        }
+
+        private @Nullable String thingName() { //TODO: (Nad) Temp private
+            return thingName;
+        }
+
+        public ShellyDeviceProfileBuilder thingName(@Nullable String thingName) {
+            this.thingName = thingName;
+            return this;
+        }
+
+        private boolean extFeatures() {
+            return extFeatures;
+        }
+
+        private @Nullable String settingsJson() {
+            return settingsJson;
+        }
+
+        public ShellyDeviceProfileBuilder settingsJson(@Nullable String settingsJson) {
+            this.settingsJson = settingsJson;
+            return this;
+        }
+
+        private @Nullable ShellySettingsDevice device() {
+            return device;
+        }
+
+        private @Nullable ShellySettingsGlobal settings() {
+            return settings;
+        }
+
+        private @Nullable ShellySettingsStatus status() {
+            return status;
+        }
+
+        private @Nullable String name() {
+            return name;
+        }
+
+        public ShellyDeviceProfileBuilder name(@Nullable String name) {
+            this.name = name;
+            return this;
+        }
+
+        private boolean discoverable() {
+            return discoverable;
+        }
+
+        private boolean alwaysOn() {
+            return alwaysOn;
+        }
+
+        private boolean isGen2() {
+            return isGen2;
+        }
+
+        private boolean isBlu() {
+            return isBlu;
+        }
+
+        private @Nullable String gateway() {
+            return gateway;
+        }
+
+        public ShellyDeviceProfileBuilder gateway(@Nullable String gateway) {
+            this.gateway = gateway;
+            return this;
+        }
+
+        private @Nullable String hwRev() {
+            return hwRev;
+        }
+
+        public ShellyDeviceProfileBuilder hwRev(@Nullable String hwRev) {
+            this.hwRev = hwRev;
+            return this;
+        }
+
+        private @Nullable String hwBatchId() {
+            return hwBatchId;
+        }
+
+        public ShellyDeviceProfileBuilder hwBatchId(@Nullable String hwBatchId) {
+            this.hwBatchId = hwBatchId;
+            return this;
+        }
+
+        private @Nullable String fwVersion() {
+            return fwVersion;
+        }
+
+        public ShellyDeviceProfileBuilder fwVersion(@Nullable String fwVersion) {
+            this.fwVersion = fwVersion;
+            return this;
+        }
+
+        private @Nullable String fwDate() {
+            return fwDate;
+        }
+
+        public ShellyDeviceProfileBuilder fwDate(@Nullable String fwDate) {
+            this.fwDate = fwDate;
+            return this;
+        }
+
+        private boolean hasRelays() {
+            return hasRelays;
+        }
+
+        private int numRelays() {
+            return numRelays;
+        }
+
+        private int numRollers() {
+            return numRollers;
+        }
+
+        private boolean isRoller() {
+            return isRoller;
+        }
+
+        private boolean isDimmer() {
+            return isDimmer;
+        }
+
+        private int numInputs() {
+            return numInputs;
+        }
+
+        private int numMeters() {
+            return numMeters;
+        }
+
+        private boolean isEMeter() {
+            return isEMeter;
+        }
+
+        private boolean isCB() {
+            return isCB;
+        }
+
+        private boolean isLight() {
+            return isLight;
+        }
+
+        private boolean isBulb() {
+            return isBulb;
+        }
+
+        private boolean isDuo() {
+            return isDuo;
+        }
+
+        private boolean isRGBW2() {
+            return isRGBW2;
+        }
+
+        private boolean isInColor() {
+            return inColor;
+        }
+
+        private boolean isSensor() {
+            return isSensor;
+        }
+
+        private boolean hasBattery() {
+            return hasBattery;
+        }
+
+        private boolean isSense() {
+            return isSense;
+        }
+
+        private boolean isHT() {
+            return isHT;
+        }
+
+        private boolean isDW() {
+            return isDW;
+        }
+
+        private boolean isButton() {
+            return isButton;
+        }
+
+        private boolean isMultiButton() {
+            return isMultiButton;
+        }
+
+        private boolean isMotion() {
+            return isMotion;
+        }
+
+        private boolean isDistance() {
+            return isDistance;
+        }
+
+        private boolean isRemote() {
+            return isRemote;
+        }
+
+        private boolean isIX() {
+            return isIX;
+        }
+
+        private boolean isTRV() {
+            return isTRV;
+        }
+
+        private boolean isSmoke() {
+            return isSmoke;
+        }
+
+        private boolean isWall() {
+            return isWall;
+        }
+
+        private boolean is3EM() {
+            return is3EM;
+        }
+
+        private boolean isEM50() {
+            return isEM50;
+        }
+
+        private int minTemp() {
+            return minTemp;
+        }
+
+        private int maxTemp() {
+            return maxTemp;
+        }
+
+        private int updatePeriod() {
+            return updatePeriod;
+        }
+
+        private @Nullable String coiotEndpoint() {
+            return coiotEndpoint;
+        }
+
+        public ShellyDeviceProfileBuilder coiotEndpoint(@Nullable String coiotEndpoint) {
+            this.coiotEndpoint = coiotEndpoint;
+            return this;
+        }
+
+        private @Nullable Map<String, String> irCodes() {
+            return irCodes;
+        }
+
+        public ShellyDeviceProfileBuilder irCodes(@Nullable Map<String, String> irCodes) {
+            this.irCodes = irCodes;
+            return this;
+        }
+    }
 }
